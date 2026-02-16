@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:robinhood.com)",
+      "WebFetch(domain:deltaxtutoring.netlify.app)",
+      "WebSearch",
+      "Bash(powershell -Command \"Get-ChildItem -Filter ''*.html'' | ForEach-Object { \\(Get-Content $_FullName\\) -replace ''<main>'', ''<main class=\"\"page-transition\"\">'' | Set-Content $_FullName }\")",
+      "Bash(grep:*)",
+      "Bash(git remote add:*)",
+      "Bash(git remote:*)",
+      "Bash(git add:*)",
+      "Bash(git init:*)"
+    ]
+  }
+}

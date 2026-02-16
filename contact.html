@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Book a free consultation with DeltaX College Consulting. Learn how we can support your student's college journey.">
+    <title>Contact Us | DeltaX College Consulting</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <header class="site-header">
+        <nav class="nav-container">
+            <a href="index.html" class="logo">DeltaX</a>
+            <button class="mobile-menu-toggle" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-links">
+                <li><a href="pricing.html">Why DeltaX</a></li>
+                <li><a href="faq.html">FAQ</a></li>
+                <li><a href="contact.html" class="nav-cta">Book Free Consultation</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="page-transition">
+        <!-- Page Header -->
+        <section class="page-header">
+            <div class="container">
+                <h1>Book Your Free Consultation</h1>
+                <p>Take the first step toward personalized college guidance. No obligation, no pressure.</p>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section class="content-section">
+            <div class="container">
+                <div class="contact-grid">
+                    <!-- Contact Form -->
+                    <div class="contact-form">
+                        <h2>Request Your Consultation</h2>
+                        <p>Fill out the form below and we will reach out within 24 hours to schedule your free consultation call.</p>
+
+                        <form action="https://formspree.io/f/deltaxtutoring@gmail.com" method="POST">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="parent-name">Parent/Guardian Name *</label>
+                                    <input type="text" id="parent-name" name="parent-name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="student-name">Student Name *</label>
+                                    <input type="text" id="student-name" name="student-name" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="student-grade">Student's Current Grade *</label>
+                                <select id="student-grade" name="student-grade" required>
+                                    <option value="">Select grade...</option>
+                                    <option value="10th">10th Grade (Sophomore)</option>
+                                    <option value="11th">11th Grade (Junior)</option>
+                                    <option value="12th">12th Grade (Senior)</option>
+                                    <option value="gap">Gap Year</option>
+                                </select>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="email">Email Address *</label>
+                                    <input type="email" id="email" name="email" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="phone">Phone Number *</label>
+                                    <input type="tel" id="phone" name="phone" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="message">Tell us about your student and what you are looking for (optional)</label>
+                                <textarea id="message" name="message" placeholder="Share any context that would help us prepare for our conversation. For example: your student's academic interests, schools they are considering, specific concerns or questions, or what kind of support you are looking for."></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="referral">How did you hear about us? (optional)</label>
+                                <select id="referral" name="referral">
+                                    <option value="">Select an option...</option>
+                                    <option value="friend">Friend or Family Referral</option>
+                                    <option value="school">School Counselor</option>
+                                    <option value="search">Online Search</option>
+                                    <option value="social">Social Media</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">Request Consultation</button>
+                        </form>
+                    </div>
+
+                    <!-- Contact Info -->
+                    <div class="contact-info">
+                        <h2>What to Expect</h2>
+                        <p>Your free consultation is a 30-minute conversation where we get to know your student and answer your questions. Here is what we will cover:</p>
+
+                        <div class="values-grid" style="margin: var(--space-6) 0;">
+                            <div class="value-item">
+                                <h4>Your Student's Profile</h4>
+                                <p>We will learn about your student's academic standing, interests, and college goals.</p>
+                            </div>
+                            <div class="value-item">
+                                <h4>Your Questions</h4>
+                                <p>Bring any questions you have about the admissions process or our services.</p>
+                            </div>
+                            <div class="value-item">
+                                <h4>Honest Guidance</h4>
+                                <p>We will provide candid feedback about your student's positioning and next steps.</p>
+                            </div>
+                            <div class="value-item">
+                                <h4>Fit Assessment</h4>
+                                <p>We will discuss whether our services are a good match for your family's needs.</p>
+                            </div>
+                        </div>
+
+                        <p>There is no obligation and no pressure. Our goal is simply to be helpful, whether or not you decide to work with us.</p>
+
+                        <h3 style="margin-top: var(--space-10);">Other Ways to Reach Us</h3>
+
+                        <div class="contact-method">
+                            <div class="contact-method-icon">✉</div>
+                            <div>
+                                <h4>Email</h4>
+                                <p><a href="mailto:deltaxtutoring@gmail.com">deltaxtutoring@gmail.com</a></p>
+                                <p class="text-muted">We respond within 24 hours on business days.</p>
+                            </div>
+                        </div>
+
+                        <div class="notice-box">
+                            <p><strong>Prefer to schedule directly?</strong> If you would like to book a specific time slot, you can use our calendar link below.</p>
+                            <a href="#" class="btn btn-outline" style="margin-top: var(--space-4);">Open Scheduling Calendar</a>
+                            <p class="text-muted" style="font-size: var(--text-xs); margin-top: var(--space-2);">[PLACEHOLDER: Replace # with Calendly or scheduling tool link]</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Response Time Note -->
+        <section class="content-section centered">
+            <div class="container">
+                <h2>Our Response Commitment</h2>
+                <p>We respond to all consultation requests within 24 hours on business days. If you submit your request over a weekend, you will hear from us by end of day Monday. When you receive our response, we will provide several time options for your consultation call so you can choose what works best for your schedule.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="index.html" class="logo">DeltaX</a>
+                    <p>College consulting by recent admits who understand the modern admissions landscape.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Pages</h4>
+                    <ul>
+                        <li><a href="pricing.html">Why DeltaX</a></li>
+                        <li><a href="faq.html">FAQ</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-cta">
+                    <h4>Start Your Journey</h4>
+                    <a href="contact.html" class="btn btn-primary">Book Free Consultation</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 DeltaX College Consulting. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
