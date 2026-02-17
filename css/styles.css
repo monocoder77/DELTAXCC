@@ -437,6 +437,18 @@ section {
 }
 
 /* --------------------------------------------------------------------------
+   Landing Page Section Dividers
+   -------------------------------------------------------------------------- */
+.meet-the-team,
+.our-mission,
+.grade-selection,
+.pricing-section,
+.competitor-comparison,
+.final-cta-gradient {
+    border-top: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+/* --------------------------------------------------------------------------
    Hero Section
    -------------------------------------------------------------------------- */
 .hero {
@@ -1973,38 +1985,57 @@ textarea:focus-visible {
     font-style: italic;
 }
 
-.team-carousel {
-    width: 100%;
-    overflow: hidden;
-}
-
-.team-track {
+/* Team Slider */
+.team-slider {
     display: flex;
+    align-items: center;
     gap: var(--space-6);
-    animation: scroll-team 45s linear infinite;
-    width: max-content;
+    width: 100%;
+    padding: 0 var(--space-8);
 }
 
-.team-track:hover {
-    animation-play-state: paused;
+.team-slider-window {
+    overflow: hidden;
+    flex: 1;
 }
 
-@keyframes scroll-team {
-    0% {
-        transform: translateX(0);
-    }
-    100% {
-        transform: translateX(-50%);
-    }
+.team-slider-track {
+    display: flex;
+    gap: var(--space-8);
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.team-nav {
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    font-size: 1.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-base);
+}
+
+.team-nav:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.team-nav:disabled {
+    opacity: 0.3;
+    cursor: default;
 }
 
 .team-card-landing {
     flex-shrink: 0;
-    width: calc((100vw - var(--space-12)) / 3);
-    max-width: 380px;
-    min-width: 300px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    width: calc((100% - var(--space-8) * 2) / 3);
+    background: rgba(20, 15, 40, 0.9);
+    border: 1px solid rgba(212, 175, 55, 0.3);
     border-radius: var(--radius-lg);
     overflow: hidden;
     transition: all var(--transition-base);
@@ -2012,18 +2043,24 @@ textarea:focus-visible {
 }
 
 .team-card-landing:hover {
-    background: rgba(255, 255, 255, 0.08);
-    box-shadow: var(--shadow-lg);
+    border-color: rgba(212, 175, 55, 0.6);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
 }
 
 .team-photo {
     width: 100%;
-    aspect-ratio: 1 / 1;
+    min-height: 500px;
     background: linear-gradient(135deg, rgba(45, 27, 78, 0.8) 0%, rgba(26, 10, 46, 0.9) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.team-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .team-photo span {
@@ -2033,18 +2070,18 @@ textarea:focus-visible {
 }
 
 .team-info {
-    padding: var(--space-6);
+    padding: var(--space-6) var(--space-5);
 }
 
 .team-card-landing h3 {
     font-size: var(--text-xl);
     color: #ffffff;
-    margin: 0 0 var(--space-2);
+    margin: 0 0 var(--space-1);
 }
 
 .team-school {
     color: #d4af37;
-    font-size: var(--text-base);
+    font-size: var(--text-sm);
     font-style: italic;
     margin: 0 0 var(--space-4);
 }
@@ -2103,6 +2140,7 @@ textarea:focus-visible {
     gap: var(--space-8);
     justify-content: center;
     flex-wrap: wrap;
+    align-items: stretch;
 }
 
 .grade-btn {
@@ -2117,6 +2155,7 @@ textarea:focus-visible {
     text-decoration: none;
     transition: all var(--transition-base);
     min-width: 250px;
+    flex: 1;
 }
 
 .grade-btn:hover {
@@ -2137,6 +2176,30 @@ textarea:focus-visible {
 .grade-btn .grade-desc {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
+}
+
+.grade-features {
+    text-align: left;
+    margin-top: var(--space-6);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--color-border);
+    display: inline-block;
+}
+
+.grade-features li {
+    padding: var(--space-2) 0;
+    padding-left: var(--space-6);
+    position: relative;
+    color: var(--color-text-light);
+    font-size: var(--text-sm);
+}
+
+.grade-features li::before {
+    content: '\2713';
+    position: absolute;
+    left: 0;
+    color: var(--color-success);
+    font-weight: 700;
 }
 
 /* --------------------------------------------------------------------------
@@ -2167,6 +2230,19 @@ textarea:focus-visible {
     margin: 0 auto;
 }
 
+.pricing-cards.pricing-cards-three {
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 1100px;
+}
+
+.price-strike {
+    text-decoration: line-through;
+    color: var(--color-text-muted);
+    font-size: var(--text-2xl);
+    font-weight: 400;
+    margin-right: var(--space-2);
+}
+
 .pricing-card-landing {
     background: var(--bg-card);
     border-radius: var(--radius-lg);
@@ -2185,20 +2261,11 @@ textarea:focus-visible {
 }
 
 .pricing-card-landing.featured {
-    border: 2px solid var(--color-primary);
+    border: 1px solid var(--color-border);
 }
 
 .pricing-card-landing.featured::after {
-    content: 'Most Popular';
-    position: absolute;
-    top: -12px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--color-primary);
-    color: #ffffff;
-    padding: var(--space-1) var(--space-4);
-    border-radius: var(--radius-full);
-    font-size: var(--text-sm);
+    content: none;
     font-weight: 600;
 }
 
@@ -2479,6 +2546,91 @@ textarea:focus-visible {
     font-size: var(--text-lg);
 }
 
+/* Contact Form (Bold Section Layout) */
+.contact-form-wrap {
+    max-width: 700px;
+    margin-top: var(--space-10);
+}
+
+.contact-form-wrap .form-group label {
+    color: rgba(255, 255, 255, 0.8);
+    font-family: 'Poppins', sans-serif;
+}
+
+.contact-form-wrap .form-group input,
+.contact-form-wrap .form-group select,
+.contact-form-wrap .form-group textarea {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    font-family: 'Poppins', sans-serif;
+}
+
+.contact-form-wrap .form-group select option {
+    background: #1a0a2e;
+    color: #ffffff;
+}
+
+.contact-form-wrap .form-group input::placeholder,
+.contact-form-wrap .form-group textarea::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.contact-form-wrap .form-group input:focus,
+.contact-form-wrap .form-group select:focus,
+.contact-form-wrap .form-group textarea:focus {
+    border-color: var(--color-purple-400);
+    box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.15);
+}
+
+/* Landing Page CTA (Robinhood-inspired) */
+.landing-cta {
+    background: #0a0a0a;
+    text-align: center;
+    padding: var(--space-24) 0;
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    border-top: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+.landing-cta .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.landing-cta h2 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    color: #ffffff;
+    letter-spacing: -1px;
+    margin-bottom: var(--space-8);
+}
+
+.landing-cta p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: clamp(1.1rem, 2vw, 1.4rem);
+    max-width: 600px;
+    margin: 0 auto var(--space-12);
+    line-height: 1.8;
+}
+
+.landing-cta .btn-primary {
+    padding: var(--space-5) var(--space-12);
+    font-size: var(--text-lg);
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(10px);
+}
+
+.landing-cta .btn-primary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
 /* --------------------------------------------------------------------------
    Responsive Styles
    -------------------------------------------------------------------------- */
@@ -2585,17 +2737,27 @@ textarea:focus-visible {
     }
 
     .team-card-landing {
-        width: 280px;
-        min-width: 280px;
+        width: 100%;
+        min-width: unset;
     }
 
-    .team-track {
-        gap: var(--space-4);
-        animation-duration: 35s;
+    .team-slider-track {
+        gap: var(--space-6);
+    }
+
+    .team-nav {
+        width: 40px;
+        height: 40px;
+        font-size: 1.3rem;
+    }
+
+    .team-slider {
+        padding: 0 var(--space-4);
+        gap: var(--space-3);
     }
 
     .team-photo {
-        aspect-ratio: 1 / 0.9;
+        min-height: 350px;
     }
 
     .team-photo span {
@@ -2686,11 +2848,13 @@ textarea:focus-visible {
         max-width: 400px;
     }
 
-    .team-card-landing {
-        width: 320px;
-        min-width: 320px;
+    .pricing-cards.pricing-cards-three {
+        grid-template-columns: 1fr;
+        max-width: 400px;
     }
+
 }
+
 
 @media (max-width: 480px) {
     .container {

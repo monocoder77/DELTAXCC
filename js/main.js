@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Service type toggle for contact form
     initServiceTypeToggle();
 
+    // Team slider
+    initTeamSlider();
+
     // Scroll reveal animations
     initScrollReveal();
 });
@@ -234,6 +237,128 @@ function isValidPhone(phone) {
     // Allow various phone formats
     const phoneRegex = /^[\d\s\-\(\)\+\.]{10,}$/;
     return phoneRegex.test(phone);
+}
+
+/* --------------------------------------------------------------------------
+   Team Slider (Click-through Carousel)
+   -------------------------------------------------------------------------- */
+function initTeamSlider() {
+    const track = document.querySelector('.team-slider-track');
+    const prevBtn = document.querySelector('.team-nav-prev');
+    const nextBtn = document.querySelector('.team-nav-next');
+
+    if (!track || !prevBtn || !nextBtn) return;
+
+    // Clone all cards and append for seamless looping
+    const originalCards = Array.from(track.querySelectorAll('.team-card-landing'));
+    const totalOriginal = originalCards.length;
+    originalCards.forEach(function(card) {
+        track.appendChild(card.cloneNode(true));
+    });
+
+    let currentIndex = 0;
+    let isTransitioning = false;
+
+    function getVisibleCount() {
+        if (window.innerWidth <= 768) return 1;
+        return 3;
+    }
+
+    function getCardWidth() {
+        var visibleCount = getVisibleCount();
+        var gap = parseFloat(getComputedStyle(track).gap) || 32;
+        var cardWidth = (track.parentElement.offsetWidth - gap * (visibleCount - 1)) / visibleCount;
+        return { cardWidth: cardWidth, gap: gap };
+    }
+
+    function slideTo(index, animate) {
+        var dims = getCardWidth();
+        var offset = index * (dims.cardWidth + dims.gap);
+        if (animate === false) {
+            track.style.transition = 'none';
+        } else {
+            track.style.transition = 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+        }
+        track.style.transform = 'translateX(-' + offset + 'px)';
+    }
+
+    function onTransitionEnd() {
+        isTransitioning = false;
+        // If we've scrolled past the original set, jump back seamlessly
+        if (currentIndex >= totalOriginal) {
+            currentIndex = currentIndex - totalOriginal;
+            slideTo(currentIndex, false);
+        } else if (currentIndex < 0) {
+            currentIndex = currentIndex + totalOriginal;
+            slideTo(currentIndex, false);
+        }
+    }
+
+    track.addEventListener('transitionend', onTransitionEnd);
+
+    nextBtn.addEventListener('click', function() {
+        if (isTransitioning) return;
+        isTransitioning = true;
+        currentIndex++;
+        slideTo(currentIndex, true);
+    });
+
+    prevBtn.addEventListener('click', function() {
+        if (isTransitioning) return;
+        isTransitioning = true;
+        // If at start, jump to clone set instantly then animate back
+        if (currentIndex === 0) {
+            currentIndex = totalOriginal;
+            slideTo(currentIndex, false);
+            // Force reflow then animate
+            track.offsetHeight;
+        }
+        currentIndex--;
+        slideTo(currentIndex, true);
+    });
+
+    window.addEventListener('resize', function() {
+        slideTo(currentIndex, false);
+    });
+
+    // Touch swipe support
+    var touchStartX = 0;
+    var touchEndX = 0;
+    var sliderWindow = document.querySelector('.team-slider-window');
+
+    sliderWindow.addEventListener('touchstart', function(e) {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    sliderWindow.addEventListener('touchend', function(e) {
+        touchEndX = e.changedTouches[0].screenX;
+        var diff = touchStartX - touchEndX;
+
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) {
+                // Swipe left — next
+                if (!isTransitioning) {
+                    isTransitioning = true;
+                    currentIndex++;
+                    slideTo(currentIndex, true);
+                }
+            } else {
+                // Swipe right — prev
+                if (!isTransitioning) {
+                    isTransitioning = true;
+                    if (currentIndex === 0) {
+                        currentIndex = totalOriginal;
+                        slideTo(currentIndex, false);
+                        track.offsetHeight;
+                    }
+                    currentIndex--;
+                    slideTo(currentIndex, true);
+                }
+            }
+        }
+    }, { passive: true });
+
+    slideTo(0, false);
 }
 
 /* --------------------------------------------------------------------------
