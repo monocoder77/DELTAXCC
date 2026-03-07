@@ -1080,7 +1080,7 @@ section {
     background: var(--bg-card-hover);
 }
 
-.team-photo {
+.team-card .team-photo {
     width: 120px;
     height: 120px;
     border-radius: 50%;
@@ -2045,7 +2045,7 @@ textarea:focus-visible {
 
 .team-card-landing {
     flex-shrink: 0;
-    width: calc((100% - var(--space-8) * 2) / 3);
+    width: calc((100% - var(--space-8)) / 2);
     background: rgba(20, 15, 40, 0.9);
     border: 1px solid rgba(212, 175, 55, 0.3);
     border-radius: var(--radius-lg);
@@ -2059,22 +2059,25 @@ textarea:focus-visible {
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
 }
 
-.team-photo {
+.team-card-landing .team-photo {
     width: 100%;
+    height: 400px;
     background: linear-gradient(135deg, rgba(45, 27, 78, 0.8) 0%, rgba(26, 10, 46, 0.9) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    border-radius: 0;
 }
 
-.team-photo img {
+.team-card-landing .team-photo img {
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: cover;
     display: block;
 }
 
-.team-photo span {
+.team-card-landing .team-photo span {
     font-size: var(--text-5xl);
     font-weight: 700;
     color: rgba(255, 255, 255, 0.3);
@@ -2082,6 +2085,7 @@ textarea:focus-visible {
 
 .team-info {
     padding: var(--space-6) var(--space-5);
+    border-top: 1px solid rgba(212, 175, 55, 0.3);
 }
 
 .team-card-landing h3 {
@@ -2795,11 +2799,15 @@ textarea:focus-visible {
         min-width: unset;
     }
 
+    .team-card-landing .team-photo {
+        height: 300px;
+    }
+
     .team-slider-track {
         gap: var(--space-6);
     }
 
-    .team-photo span {
+    .team-card-landing .team-photo span {
         font-size: var(--text-4xl);
     }
 
