@@ -1997,55 +1997,19 @@ textarea:focus-visible {
     font-style: italic;
 }
 
-/* Team Slider */
-.team-slider {
+/* Team Grid */
+.team-grid {
     display: flex;
-    align-items: center;
-    gap: var(--space-6);
-    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-8);
+    max-width: 1200px;
+    margin: 0 auto;
     padding: 0 var(--space-8);
 }
 
-.team-slider-window {
-    overflow: hidden;
-    flex: 1;
-}
-
-.team-slider-track {
-    display: flex;
-    gap: var(--space-8);
-    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.team-nav {
-    flex-shrink: 0;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.05);
-    color: #ffffff;
-    font-size: 1.8rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all var(--transition-base);
-}
-
-.team-nav:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.6);
-}
-
-.team-nav:disabled {
-    opacity: 0.3;
-    cursor: default;
-}
-
 .team-card-landing {
-    flex-shrink: 0;
-    width: calc((100% - var(--space-8)) / 2);
+    width: calc((100% - var(--space-8) * 2) / 3);
     background: rgba(20, 15, 40, 0.9);
     border: 1px solid rgba(212, 175, 55, 0.3);
     border-radius: var(--radius-lg);
@@ -2658,6 +2622,10 @@ textarea:focus-visible {
     .contact-grid {
         grid-template-columns: 1fr;
     }
+
+    .team-card-landing {
+        width: calc((100% - var(--space-8)) / 2);
+    }
 }
 
 @media (max-width: 768px) {
@@ -2753,27 +2721,13 @@ textarea:focus-visible {
         padding: 0 var(--space-2);
     }
 
-    .team-nav {
-        width: 36px;
-        height: 36px;
-        font-size: 1.1rem;
-        position: absolute;
-        z-index: 2;
-        top: 50%;
-        transform: translateY(-50%);
+    .team-grid {
+        gap: var(--space-6);
+        padding: 0 var(--space-4);
     }
 
-    .team-nav-prev {
-        left: var(--space-2);
-    }
-
-    .team-nav-next {
-        right: var(--space-2);
-    }
-
-    .team-slider {
-        position: relative;
-        padding: 0 var(--space-2);
+    .team-card-landing {
+        width: 100%;
     }
 
     .pricing-card-landing {
@@ -2794,21 +2748,8 @@ textarea:focus-visible {
         bottom: calc(var(--space-12) + 30px);
     }
 
-    .team-card-landing {
-        width: 100%;
-        min-width: unset;
-    }
-
     .team-card-landing .team-photo {
         height: 300px;
-    }
-
-    .team-slider-track {
-        gap: var(--space-6);
-    }
-
-    .team-card-landing .team-photo span {
-        font-size: var(--text-4xl);
     }
 
     .team-info {
