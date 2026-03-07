@@ -2749,7 +2749,12 @@ textarea:focus-visible {
     }
 
     .team-card-landing .team-photo {
-        height: 300px;
+        height: auto;
+    }
+
+    .team-card-landing .team-photo img {
+        height: auto;
+        object-fit: contain;
     }
 
     .team-info {
