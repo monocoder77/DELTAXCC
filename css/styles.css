@@ -2907,3 +2907,75 @@ textarea:focus-visible {
         padding: var(--space-3) var(--space-4);
     }
 }
+
+/* --------------------------------------------------------------------------
+   Mobile Bottom Navigation Bar
+   -------------------------------------------------------------------------- */
+.mobile-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: rgba(26, 10, 46, 0.95);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid rgba(168, 85, 247, 0.2);
+        padding: var(--space-2) 0;
+        padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
+        justify-content: space-around;
+        align-items: center;
+    }
+
+    .bottom-nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: var(--space-1) var(--space-2);
+        color: rgba(255, 255, 255, 0.5);
+        text-decoration: none;
+        font-size: 0.65rem;
+        font-family: var(--font-body);
+        font-weight: 500;
+        transition: color var(--transition-fast);
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .bottom-nav-item svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    .bottom-nav-item.active {
+        color: var(--color-purple-400);
+    }
+
+    .bottom-nav-item.bottom-nav-cta {
+        color: var(--color-purple-300);
+    }
+
+    .bottom-nav-item.bottom-nav-cta.active {
+        color: var(--color-purple-400);
+    }
+
+    /* Hide hamburger menu since we have bottom nav */
+    .mobile-menu-toggle {
+        display: none !important;
+    }
+
+    /* Add padding to bottom of page so content isn't hidden behind nav */
+    body {
+        padding-bottom: 70px;
+    }
+
+    .site-footer {
+        margin-bottom: 0;
+    }
+}
