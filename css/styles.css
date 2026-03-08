@@ -2721,6 +2721,10 @@ textarea:focus-visible {
         width: 100%;
     }
 
+    .team-card-aarav {
+        order: -1;
+    }
+
     .pricing-card-landing {
         padding: var(--space-6);
     }
