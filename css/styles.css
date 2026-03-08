@@ -2640,25 +2640,15 @@ textarea:focus-visible {
     }
 
     .mobile-menu-toggle {
-        display: flex;
+        display: none;
     }
 
     .nav-links {
         display: none;
-        flex-direction: column;
-        width: 100%;
-        padding: var(--space-4) var(--space-6);
-        gap: var(--space-4);
-        background-color: var(--bg-header);
-        border-top: 1px solid var(--color-border);
-    }
-
-    .nav-links.active {
-        display: flex;
     }
 
     .nav-container {
-        flex-wrap: wrap;
+        justify-content: center;
     }
 
     .nav-links a {
