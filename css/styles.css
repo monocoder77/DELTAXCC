@@ -356,7 +356,7 @@ section {
 }
 
 .nav-links a {
-    font-size: var(--text-sm);
+    font-size: var(--text-lg);
     font-weight: 500;
     color: rgba(255, 255, 255, 0.8);
     transition: color var(--transition-base);
@@ -373,7 +373,7 @@ section {
     padding: var(--space-2) var(--space-4) !important;
     border-radius: var(--radius-md);
     font-weight: 600 !important;
-    font-size: var(--text-sm) !important;
+    font-size: var(--text-lg) !important;
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
     transition: all var(--transition-base) !important;
     white-space: nowrap;
