@@ -323,6 +323,7 @@ section {
     .nav-container {
         min-height: var(--header-height);
         height: auto;
+        justify-content: center;
     }
 }
 
