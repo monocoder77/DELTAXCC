@@ -515,6 +515,13 @@ section {
     animation: fadeInUp 0.8s ease-out 0.4s both;
 }
 
+.hero-buttons {
+    display: flex;
+    gap: var(--space-4);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
 .btn-hero:hover {
     background: rgba(255, 255, 255, 0.2);
     border-color: rgba(255, 255, 255, 0.6);
