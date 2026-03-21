@@ -12,7 +12,27 @@
       "Bash(git init:*)",
       "Bash(git commit:*)",
       "Bash(git branch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "mcp__figma-remote-mcp__generate_figma_design",
+      "Bash(wc -l /c/Users/timio/Downloads/DELTAXCC/*.html)",
+      "Bash(npx create-next-app@latest portal --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm 2>&1 | tail -5)",
+      "Bash(rm -rf /c/Users/timio/Downloads/portal/.git && mv /c/Users/timio/Downloads/portal/* /c/Users/timio/Downloads/DELTAXCC/ 2>/dev/null; mv /c/Users/timio/Downloads/portal/.* /c/Users/timio/Downloads/DELTAXCC/ 2>/dev/null; rm -rf /c/Users/timio/Downloads/portal)",
+      "Bash(npm install:*)",
+      "Bash(cp index.html public/index-static.html && cp pricing.html public/pricing.html && cp contact.html public/contact.html && cp faq.html public/faq.html && cp dashboard.html public/dashboard.html && cp -r css public/css && cp -r js public/js && cp -r images public/images 2>/dev/null; echo \"done\")",
+      "Bash(npx next:*)",
+      "Bash(taskkill //F //IM node.exe 2>/dev/null; echo \"done\")",
+      "Bash(ls:*)",
+      "WebFetch(domain:upload.wikimedia.org)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:commons.wikimedia.org)",
+      "Bash(curl -s \"https://en.wikipedia.org/w/api.php?action=query&titles=File:The_University_of_California_UCLA.svg&prop=imageinfo&iiprop=url&format=json\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); pages=d[''''query''''][''''pages'''']; print\\(list\\(pages.values\\(\\)\\)[0].get\\(''''imageinfo'''',[{}]\\)[0].get\\(''''url'''',''''not found''''\\)\\)\")",
+      "Bash(curl -s \"https://commons.wikimedia.org/w/api.php?action=query&titles=File:The_University_of_California_UCLA.svg&prop=imageinfo&iiprop=url&format=json\")",
+      "Bash(curl -s \"https://commons.wikimedia.org/w/api.php?action=query&titles=File:UCLA_Bruins_script.svg&prop=imageinfo&iiprop=url&format=json\")",
+      "Bash(find . -name .env* -type f)",
+      "Bash(find src:*)",
+      "Bash(cd:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
