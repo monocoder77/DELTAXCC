@@ -35,11 +35,17 @@ export default function LoginPage() {
     // Get profile to verify role
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
+
+      if (profileError) {
+        setError(profileError.message);
+        setLoading(false);
+        return;
+      }
 
       if (profile) {
         localStorage.setItem('portal_auth', 'live');
