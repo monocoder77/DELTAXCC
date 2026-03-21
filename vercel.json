@@ -1,6 +1,10 @@
 {
   "cleanUrls": true,
-  "framework": null,
-  "buildCommand": "",
-  "outputDirectory": "."
+  "rewrites": [
+    { "source": "/", "destination": "/index-static.html" },
+    { "source": "/pricing", "destination": "/pricing.html" },
+    { "source": "/faq", "destination": "/faq.html" },
+    { "source": "/contact", "destination": "/contact.html" },
+    { "source": "/dashboard", "destination": "/dashboard.html" }
+  ]
 }
