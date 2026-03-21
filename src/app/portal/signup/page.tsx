@@ -8,7 +8,7 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'student' | 'consultant'>('student');
+  const role = 'student';
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -93,32 +93,8 @@ export default function SignupPage() {
         </div>
 
         <div className="border-2 border-portal-border rounded-lg p-8">
-          {/* Role Toggle */}
-          <div className="flex bg-portal-bg rounded-lg p-1 mb-6">
-            <button
-              onClick={() => setRole('student')}
-              className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all ${
-                role === 'student'
-                  ? 'bg-portal-accent text-white'
-                  : 'text-portal-muted hover:text-portal-text'
-              }`}
-            >
-              Student
-            </button>
-            <button
-              onClick={() => setRole('consultant')}
-              className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all ${
-                role === 'consultant'
-                  ? 'bg-portal-green text-white'
-                  : 'text-portal-muted hover:text-portal-text'
-              }`}
-            >
-              Counselor
-            </button>
-          </div>
-
           <h1 className="text-xl font-semibold text-portal-text mb-6">
-            Sign up as {role === 'consultant' ? 'Counselor' : 'Student'}
+            Student Sign Up
           </h1>
 
           <form onSubmit={handleSignup} className="space-y-4">
@@ -161,11 +137,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full font-medium py-3 rounded-lg transition-colors disabled:opacity-50 text-white ${
-                role === 'consultant'
-                  ? 'bg-portal-green hover:bg-portal-green/90'
-                  : 'bg-portal-accent hover:bg-portal-accent/90'
-              }`}
+              className="w-full font-medium py-3 rounded-lg transition-colors disabled:opacity-50 text-white bg-portal-accent hover:bg-portal-accent/90"
             >
               {loading ? 'Creating account...' : 'Create Account'}
             </button>

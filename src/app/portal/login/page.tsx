@@ -7,7 +7,7 @@ import { getSupabase } from '@/lib/supabase';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'student' | 'counselor'>('student');
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -71,32 +71,8 @@ export default function LoginPage() {
 
         {/* Login Card */}
         <div className="border-2 border-portal-border rounded-lg p-8">
-          {/* Role Toggle */}
-          <div className="flex bg-portal-bg rounded-lg p-1 mb-6">
-            <button
-              onClick={() => setRole('student')}
-              className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all ${
-                role === 'student'
-                  ? 'bg-portal-accent text-white'
-                  : 'text-portal-muted hover:text-portal-text'
-              }`}
-            >
-              Student
-            </button>
-            <button
-              onClick={() => setRole('counselor')}
-              className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all ${
-                role === 'counselor'
-                  ? 'bg-portal-green text-white'
-                  : 'text-portal-muted hover:text-portal-text'
-              }`}
-            >
-              Counselor
-            </button>
-          </div>
-
           <h1 className="text-xl font-semibold text-portal-text mb-6">
-            Sign in as {role === 'counselor' ? 'Counselor' : 'Student'}
+            Sign In
           </h1>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -129,11 +105,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full font-medium py-3 rounded-lg transition-colors disabled:opacity-50 text-white ${
-                role === 'counselor'
-                  ? 'bg-portal-green hover:bg-portal-green/90'
-                  : 'bg-portal-accent hover:bg-portal-accent/90'
-              }`}
+              className="w-full font-medium py-3 rounded-lg transition-colors disabled:opacity-50 text-white bg-portal-accent hover:bg-portal-accent/90"
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
