@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Match the website's purple-tinted dark theme */
+  --color-portal-bg: #1a0a2e;
+  --color-portal-surface: rgba(255, 255, 255, 0.04);
+  --color-portal-card: rgba(255, 255, 255, 0.05);
+  --color-portal-elevated: rgba(255, 255, 255, 0.08);
+  --color-portal-border: rgba(255, 255, 255, 0.18);
+  --color-portal-border-subtle: rgba(255, 255, 255, 0.07);
+  --color-portal-accent: #a855f7;
+  --color-portal-accent-dim: #7e22ce;
+
+  /* Softer semantic colors */
+  --color-portal-green: #5eae91;
+  --color-portal-amber: #c9955a;
+  --color-portal-red: #c47070;
+  --color-portal-rose: #b87a7a;
+
+  /* Typography */
+  --color-portal-text: #e0dce6;
+  --color-portal-body: #a8a3b8;
+  --color-portal-muted: #8c86a0;
+  --color-portal-dim: #5e576e;
+  --color-portal-heading: #7b6f99;
+
+  /* Sidebar */
+  --color-portal-sidebar: rgba(14, 6, 24, 0.97);
+  --color-portal-sidebar-active: rgba(168, 85, 247, 0.08);
+
+  /* Interaction */
+  --color-portal-hover: rgba(255, 255, 255, 0.06);
+
+  /* Shadows */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+body {
+  font-family: 'Libre Baskerville', Baskerville, 'Times New Roman', serif;
+  line-height: 1.7;
+}
+
+/* Tiptap editor styles */
+.tiptap {
+  outline: none;
+  min-height: 150px;
+  padding: 1rem;
+  color: #e0dce6;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+
+.tiptap p {
+  margin-bottom: 0.75rem;
+}
+
+.tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  color: #5e576e;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Scrollbar styling */
+.portal-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.portal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.portal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.portal-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
