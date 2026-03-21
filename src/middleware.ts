@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   // Protect portal routes (but not login)
-  if (request.nextUrl.pathname.startsWith('/portal') && !request.nextUrl.pathname.startsWith('/portal/login')) {
+  if (request.nextUrl.pathname.startsWith('/portal') && !request.nextUrl.pathname.startsWith('/portal/login') && !request.nextUrl.pathname.startsWith('/portal/signup')) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = '/portal/login';
