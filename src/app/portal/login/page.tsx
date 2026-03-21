@@ -113,8 +113,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-portal-dim text-sm mt-6">
-          Don&apos;t have an account?{' '}
-          <a href="/portal/signup" className="text-portal-accent hover:underline">Sign up</a>
+          Contact your counselor for account access.
         </p>
       </div>
     </div>

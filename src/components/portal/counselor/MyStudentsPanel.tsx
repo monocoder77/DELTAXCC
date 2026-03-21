@@ -28,6 +28,51 @@ export default function MyStudentsPanel({ onViewStudent }: Props) {
   const { profile } = useAuth();
   const [studentData, setStudentData] = useState<StudentData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [formError, setFormError] = useState('');
+  const [formLoading, setFormLoading] = useState(false);
+
+  const createStudent = async () => {
+    if (!newName.trim() || !newEmail.trim() || !newPassword.trim()) {
+      setFormError('Please fill in all fields.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setFormError('Password must be at least 6 characters.');
+      return;
+    }
+    setFormLoading(true);
+    setFormError('');
+
+    const res = await fetch('/api/create-student', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: newEmail,
+        password: newPassword,
+        fullName: newName,
+        assignedConsultantId: profile?.id,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      setFormError(data.error);
+      setFormLoading(false);
+      return;
+    }
+
+    // Refresh the student list
+    setShowForm(false);
+    setNewName('');
+    setNewEmail('');
+    setNewPassword('');
+    setFormLoading(false);
+    window.location.reload();
+  };
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -82,10 +127,39 @@ export default function MyStudentsPanel({ onViewStudent }: Props) {
 
   return (
     <div className="p-6 lg:p-8 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-portal-text font-[family-name:var(--font-libre)]">My Students</h1>
-        <p className="text-portal-body text-sm mt-1.5">{studentData.length} active student{studentData.length !== 1 ? 's' : ''}</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-semibold text-portal-text font-[family-name:var(--font-libre)]">My Students</h1>
+          <p className="text-portal-body text-sm mt-1.5">{studentData.length} active student{studentData.length !== 1 ? 's' : ''}</p>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-portal-green hover:bg-portal-green/90 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Add Student
+        </button>
       </div>
+
+      {showForm && (
+        <div className="bg-portal-surface border border-portal-border-subtle rounded-lg p-5 mb-6" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-portal-heading mb-4">New Student Account</h3>
+          <div className="space-y-3">
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" className="w-full bg-portal-bg border border-portal-border-subtle rounded-lg px-3 py-2.5 text-sm text-portal-text placeholder-portal-dim focus:outline-none focus:border-portal-green/50" />
+            <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email address" type="email" className="w-full bg-portal-bg border border-portal-border-subtle rounded-lg px-3 py-2.5 text-sm text-portal-text placeholder-portal-dim focus:outline-none focus:border-portal-green/50" />
+            <input value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Password (min 6 characters)" type="text" className="w-full bg-portal-bg border border-portal-border-subtle rounded-lg px-3 py-2.5 text-sm text-portal-text placeholder-portal-dim focus:outline-none focus:border-portal-green/50" />
+            {formError && <p className="text-xs text-portal-rose">{formError}</p>}
+            <div className="flex items-center gap-3">
+              <button onClick={createStudent} disabled={formLoading} className="bg-portal-green hover:bg-portal-green/90 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors disabled:opacity-50">
+                {formLoading ? 'Creating...' : 'Create Student'}
+              </button>
+              <button onClick={() => { setShowForm(false); setFormError(''); }} className="text-sm text-portal-muted hover:text-portal-text transition-colors">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {studentData.length === 0 ? (
         <p className="text-sm text-portal-muted">No students assigned yet.</p>
