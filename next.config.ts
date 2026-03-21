@@ -1,8 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Static marketing pages are served from /public directory
-  // Portal pages are served by Next.js under /portal
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: '/', destination: '/index-static.html' },
+        { source: '/pricing', destination: '/pricing.html' },
+        { source: '/faq', destination: '/faq.html' },
+        { source: '/contact', destination: '/contact.html' },
+        { source: '/dashboard', destination: '/dashboard.html' },
+      ],
+    };
+  },
 };
 
 export default nextConfig;
