@@ -25,7 +25,6 @@ export default function PromptLibraryPanel() {
       const { data: students } = await supabase
         .from('profiles')
         .select('id')
-        .eq('assigned_consultant_id', profile!.id)
         .eq('role', 'student');
 
       const ids = students?.map(s => s.id) || [];

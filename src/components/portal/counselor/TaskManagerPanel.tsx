@@ -29,7 +29,6 @@ export default function TaskManagerPanel() {
       const { data: studs } = await supabase
         .from('profiles')
         .select('*')
-        .eq('assigned_consultant_id', profile!.id)
         .eq('role', 'student');
 
       const studentList = (studs as Profile[]) || [];

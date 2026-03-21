@@ -37,7 +37,6 @@ export default function MyStudentsPanel({ onViewStudent }: Props) {
       const { data: students } = await supabase
         .from('profiles')
         .select('*')
-        .eq('assigned_consultant_id', profile!.id)
         .eq('role', 'student');
 
       const studentList = (students as Profile[]) || [];
@@ -116,7 +115,12 @@ export default function MyStudentsPanel({ onViewStudent }: Props) {
                     {student.avatar_initials}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-portal-text">{student.full_name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-semibold text-portal-text">{student.full_name}</h3>
+                      {student.assigned_consultant_id === profile?.id && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-portal-green/15 text-portal-green">Primary</span>
+                      )}
+                    </div>
                     <p className="text-xs text-portal-muted">{student.email}</p>
                   </div>
                 </div>

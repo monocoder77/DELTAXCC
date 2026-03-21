@@ -31,7 +31,7 @@ export default function CounselorSidebar({ activeTab, onTabChange, profile }: Co
       const { data: students } = await supabase
         .from('profiles')
         .select('id')
-        .eq('assigned_consultant_id', profile.id);
+        .eq('role', 'student');
 
       const studentIds = students?.map(s => s.id) || [];
       if (studentIds.length === 0) {

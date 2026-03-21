@@ -23,7 +23,6 @@ export default function CounselorMessagesPanel() {
       const { data: studs } = await supabase
         .from('profiles')
         .select('*')
-        .eq('assigned_consultant_id', profile!.id)
         .eq('role', 'student');
 
       const studentList = (studs as Profile[]) || [];
@@ -32,7 +31,7 @@ export default function CounselorMessagesPanel() {
       const { data: convs } = await supabase
         .from('conversations')
         .select('*')
-        .eq('consultant_id', profile!.id);
+        .or(`consultant_id.eq.${profile!.id},student_id.in.(${studentList.map(s => s.id).join(',')})`);
       const convList = (convs as Conversation[]) || [];
       setConversations(convList);
 

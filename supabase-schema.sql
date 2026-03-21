@@ -192,25 +192,53 @@ CREATE POLICY "Users can send messages" ON messages FOR INSERT WITH CHECK (auth.
 -- File access
 CREATE POLICY "Users can view own files" ON files FOR SELECT USING (auth.uid() = student_id OR auth.uid() = uploaded_by);
 
--- Consultant policies: consultants can see their assigned students' data
-CREATE POLICY "Consultants can view assigned students" ON profiles FOR SELECT USING (
+-- Consultant policies: consultants can see ALL students' data
+CREATE POLICY "Consultants can view all students" ON profiles FOR SELECT USING (
   EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
-  AND assigned_consultant_id = auth.uid()
 );
 
 CREATE POLICY "Consultants can manage student schools" ON schools FOR ALL USING (
-  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = schools.student_id AND profiles.assigned_consultant_id = auth.uid())
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
 );
 
 CREATE POLICY "Consultants can manage prompts" ON prompts FOR ALL USING (
-  EXISTS (
-    SELECT 1 FROM schools
-    JOIN profiles ON profiles.id = schools.student_id
-    WHERE schools.id = prompts.school_id AND profiles.assigned_consultant_id = auth.uid()
-  )
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
 );
 
 CREATE POLICY "Consultants can create tasks" ON tasks FOR INSERT WITH CHECK (auth.uid() = created_by);
 CREATE POLICY "Consultants can view student tasks" ON tasks FOR SELECT USING (
-  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = tasks.student_id AND profiles.assigned_consultant_id = auth.uid())
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
+);
+CREATE POLICY "Consultants can update student tasks" ON tasks FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
+);
+CREATE POLICY "Consultants can delete student tasks" ON tasks FOR DELETE USING (
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
+);
+
+CREATE POLICY "Consultants can view all essays" ON essays FOR SELECT USING (
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
+);
+CREATE POLICY "Consultants can update essays" ON essays FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
+);
+
+CREATE POLICY "Consultants can view all essay comments" ON essay_comments FOR SELECT USING (
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
+);
+
+CREATE POLICY "Consultants can view all activities" ON activities FOR SELECT USING (
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
+);
+
+CREATE POLICY "Consultants can view all conversations" ON conversations FOR SELECT USING (
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
+);
+
+CREATE POLICY "Consultants can view all messages" ON messages FOR SELECT USING (
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
+);
+
+CREATE POLICY "Consultants can view all files" ON files FOR SELECT USING (
+  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'consultant')
 );
