@@ -44,13 +44,13 @@ export default function DemoPortal({ initialRole }: { initialRole: DemoRole }) {
   );
 
   const banner = (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-portal-accent/40 bg-portal-bg/85 px-4 py-2 backdrop-blur-md sm:px-6">
+    <div className="flex h-full items-center gap-4 whitespace-nowrap border-b border-portal-accent/40 bg-portal-bg/90 px-4 backdrop-blur-md sm:px-6">
       <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-portal-accent-light">
         <Diamond size={6} /> Demo portal
       </span>
       <span className="hidden text-xs text-portal-muted md:inline">Fictional sample data. Changes reset when you reload.</span>
       <div className="ml-auto flex items-center gap-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-portal-dim">View as</span>
+        <span className="hidden font-mono text-[10px] uppercase tracking-[0.16em] text-portal-dim sm:inline">View as</span>
         <div className="flex border border-portal-line-strong" role="group" aria-label="Demo role">
           {(['student', 'counselor'] as DemoRole[]).map((r) => (
             <button

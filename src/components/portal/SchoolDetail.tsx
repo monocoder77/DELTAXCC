@@ -6,8 +6,8 @@
    Also exports the add/edit school dialog shared with SchoolsPanel.
    ========================================================================== */
 
-import { useEffect, useId, useRef, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import type { FormEvent, ReactNode, RefObject } from 'react';
 import { errorMessage, useNow } from '@/lib/hooks';
 import type { ApplicationsApi, SchoolWithEssays } from '@/lib/hooks';
 import type { NewSchool } from '@/lib/backend/types';
@@ -65,6 +65,37 @@ export function isSchoolOverdue(school: SchoolWithEssays, now: Date): boolean {
   return !school.prompts.every(isEssayDone);
 }
 
+/**
+ * Stable close handler for dialogs that must not close mid-request.
+ * The shared Dialog re-runs its focus effect whenever onClose changes identity,
+ * so the handler must stay stable across renders (typing, pending changes).
+ */
+function useGuardedClose(onClose: () => void) {
+  const pendingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  const close = useCallback(() => {
+    if (!pendingRef.current) onCloseRef.current();
+  }, []);
+  return { close, pendingRef };
+}
+
+/** Move focus to the first form field once the dialog has mounted (Dialog focuses its close button first). */
+function useInitialFocus(ref: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const id = requestAnimationFrame(() => ref.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [ref]);
+}
+
+/** Dates from the database may carry a time part; the date input needs YYYY-MM-DD. */
+function toDateInput(value: string | null | undefined): string {
+  const m = /^\d{4}-\d{2}-\d{2}/.exec(value ?? '');
+  return m ? m[0] : '';
+}
+
 /* --------------------------------------------------------------------------
    School form dialog (add + edit)
    -------------------------------------------------------------------------- */
@@ -103,26 +134,34 @@ export function SchoolFormDialog({
   const [category, setCategory] = useState<SchoolCategory>(initial?.category ?? 'target');
   const [planChoice, setPlanChoice] = useState<PlanChoice>(startPlan.choice);
   const [planOther, setPlanOther] = useState(startPlan.other);
-  const [deadline, setDeadline] = useState(initial?.deadline ?? '');
+  const [deadline, setDeadline] = useState(toDateInput(initial?.deadline));
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [isCommonApp, setIsCommonApp] = useState(Boolean(initial?.is_common_app));
   const [nameError, setNameError] = useState<string | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-
-  const close = () => {
-    if (!pending) onClose();
-  };
+  const { close, pendingRef } = useGuardedClose(onClose);
+  const nameRef = useRef<HTMLInputElement>(null);
+  useInitialFocus(nameRef);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (pendingRef.current) return;
     const trimmed = name.trim();
     if (!trimmed) {
       setNameError('Give the school a name.');
+      nameRef.current?.focus();
+      return;
+    }
+    if (planChoice === 'Other' && !planOther.trim()) {
+      setPlanError('Name the plan, or pick one from the list.');
       return;
     }
     setNameError(null);
+    setPlanError(null);
     setError(null);
+    pendingRef.current = true;
     setPending(true);
     try {
       await onSubmit({
@@ -134,8 +173,10 @@ export function SchoolFormDialog({
         notes: notes.trim(),
         is_common_app: isCommonApp,
       });
+      pendingRef.current = false;
       onClose();
     } catch (err) {
+      pendingRef.current = false;
       setError(errorMessage(err));
       setPending(false);
     }
@@ -161,6 +202,7 @@ export function SchoolFormDialog({
       <form id={formId} onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-2">
         <Field label="School name" htmlFor={`${uid}-name`} error={nameError} className="sm:col-span-2">
           <Input
+            ref={nameRef}
             id={`${uid}-name`}
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -198,11 +240,12 @@ export function SchoolFormDialog({
           </Select>
         </Field>
         {planChoice === 'Other' && (
-          <Field label="Plan name" htmlFor={`${uid}-plan-other`} className="sm:col-span-2">
+          <Field label="Plan name" htmlFor={`${uid}-plan-other`} error={planError} className="sm:col-span-2">
             <Input
               id={`${uid}-plan-other`}
               value={planOther}
               onChange={(e) => setPlanOther(e.target.value)}
+              aria-invalid={Boolean(planError)}
               placeholder="e.g. Priority, UC deadline"
               maxLength={40}
             />
@@ -256,17 +299,18 @@ function ConfirmDialog({
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const close = () => {
-    if (!pending) onClose();
-  };
+  const { close, pendingRef } = useGuardedClose(onClose);
 
   const confirm = async () => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
     setPending(true);
     setError(null);
     try {
       await onConfirm();
+      pendingRef.current = false;
     } catch (err) {
+      pendingRef.current = false;
       setError(errorMessage(err));
       setPending(false);
     }
@@ -330,13 +374,13 @@ function PromptFormDialog({
   const [fieldErrors, setFieldErrors] = useState<{ title?: string; limit?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-
-  const close = () => {
-    if (!pending) onClose();
-  };
+  const { close, pendingRef } = useGuardedClose(onClose);
+  const titleRef = useRef<HTMLInputElement>(null);
+  useInitialFocus(titleRef);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (pendingRef.current) return;
     const trimmed = promptTitle.trim();
     const words = Number(limit);
     const errs: { title?: string; limit?: string } = {};
@@ -345,11 +389,14 @@ function PromptFormDialog({
     setFieldErrors(errs);
     if (errs.title || errs.limit) return;
     setError(null);
+    pendingRef.current = true;
     setPending(true);
     try {
       await onSubmit({ title: trimmed, prompt_text: text.trim(), word_limit: words });
+      pendingRef.current = false;
       onClose();
     } catch (err) {
+      pendingRef.current = false;
       setError(errorMessage(err));
       setPending(false);
     }
@@ -375,6 +422,7 @@ function PromptFormDialog({
       <form id={formId} onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-[1fr_140px]">
         <Field label="Title" htmlFor={`${uid}-title`} error={fieldErrors.title}>
           <Input
+            ref={titleRef}
             id={`${uid}-title`}
             value={promptTitle}
             onChange={(e) => setPromptTitle(e.target.value)}
@@ -452,7 +500,7 @@ function PromptSection({
   app,
   onEdit,
   onDelete,
-  scrollOnMount,
+  scrollIntoView,
 }: {
   prompt: PromptWithEssay;
   index: number;
@@ -464,20 +512,20 @@ function PromptSection({
   app: ApplicationsApi;
   onEdit: () => void;
   onDelete: () => void;
-  scrollOnMount: boolean;
+  /** True for the deep-linked prompt: scrolls it into view when it becomes the target. */
+  scrollIntoView: boolean;
 }) {
   const ref = useRef<HTMLElement>(null);
   const bodyId = useId();
   const status = essayStatusOf(prompt);
   const words = prompt.essay?.word_count ?? 0;
-  const over = prompt.word_limit > 0 && words > prompt.word_limit;
+  const hasLimit = prompt.word_limit > 0;
+  const over = hasLimit && words > prompt.word_limit;
   const isCounselor = viewer === 'counselor';
 
   useEffect(() => {
-    if (scrollOnMount) ref.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    // Only on mount: the deep-linked prompt scrolls into view once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (scrollIntoView) ref.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [scrollIntoView]);
 
   return (
     <section ref={ref} className="scroll-mt-6 border-b border-portal-line">
@@ -493,7 +541,7 @@ function PromptSection({
           type="button"
           onClick={onToggle}
           aria-expanded={open}
-          aria-controls={bodyId}
+          aria-controls={open ? bodyId : undefined}
           className="flex min-w-0 flex-1 items-start gap-4 py-5 pl-4 pr-2 text-left sm:gap-6 sm:pl-5"
         >
           <span className={cx('pt-1 font-mono text-xs tabular-nums', open ? 'text-portal-accent-light' : 'text-portal-dim')}>
@@ -504,10 +552,10 @@ function PromptSection({
             <span className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
               <StatusTag status={status} />
               <span className={cx('font-mono text-[11px] tabular-nums', over ? 'text-portal-red' : 'text-portal-muted')}>
-                {words} / {prompt.word_limit} words
+                {hasLimit ? `${words} / ${prompt.word_limit} words` : `${words} words, no limit`}
               </span>
             </span>
-            <LineMeter value={words} max={prompt.word_limit} className="mt-3 max-w-md" />
+            {hasLimit && <LineMeter value={words} max={prompt.word_limit} className="mt-3 max-w-md" />}
           </span>
           <IconChevronDown
             size={16}
@@ -578,7 +626,7 @@ export default function SchoolDetail({
   }
   const [dialog, setDialog] = useState<DialogState>(null);
   const isCounselor = viewer === 'counselor';
-  const closeDialog = () => setDialog(null);
+  const closeDialog = useCallback(() => setDialog(null), []);
 
   const prompts = school.prompts;
   const done = prompts.filter(isEssayDone).length;
@@ -616,7 +664,7 @@ export default function SchoolDetail({
             </Button>
             <Button size="sm" variant="danger" onClick={() => setDialog({ kind: 'delete-school' })}>
               <IconTrash size={14} />
-              Delete
+              Delete school
             </Button>
           </>
         }
@@ -643,7 +691,14 @@ export default function SchoolDetail({
             tone={prompts.length > 0 && done === prompts.length ? 'green' : 'neutral'}
             label="Essays final"
           />
-          <SegmentBar value={done} max={Math.max(prompts.length, 1)} segments={Math.max(prompts.length, 1) * 4} tone="green" label="Essays final" className="mt-4 max-w-[180px]" />
+          <SegmentBar
+            value={done}
+            max={prompts.length}
+            segments={Math.min(Math.max(prompts.length, 1) * 4, 24)}
+            tone="green"
+            label="Essays final"
+            className="mt-4 max-w-[180px]"
+          />
         </div>
         <Stat value={totalWords.toLocaleString('en-US')} label="Words written" />
       </StatRow>
@@ -687,7 +742,7 @@ export default function SchoolDetail({
               app={app}
               onEdit={() => setDialog({ kind: 'edit-prompt', prompt })}
               onDelete={() => setDialog({ kind: 'delete-prompt', prompt })}
-              scrollOnMount={Boolean(focusPromptId) && focusPromptId === prompt.id}
+              scrollIntoView={Boolean(focusPromptId) && focusPromptId === prompt.id}
             />
           ))}
         </div>
@@ -702,7 +757,7 @@ export default function SchoolDetail({
             program: school.program ?? '',
             category: school.category,
             decision_plan: school.decision_plan ?? '',
-            deadline: school.deadline ?? '',
+            deadline: toDateInput(school.deadline),
             notes: school.notes ?? '',
             is_common_app: Boolean(school.is_common_app),
           }}
@@ -749,7 +804,15 @@ export default function SchoolDetail({
           title="Edit prompt"
           submitLabel="Save changes"
           initial={{ title: dialog.prompt.title, prompt_text: dialog.prompt.prompt_text ?? '', word_limit: dialog.prompt.word_limit }}
-          onSubmit={(values) => app.updatePrompt(dialog.prompt.id, values)}
+          onSubmit={async (values) => {
+            try {
+              await app.updatePrompt(dialog.prompt.id, values);
+            } catch (err) {
+              // updatePrompt applies the change before the request; reload so a failed save does not linger.
+              app.reload();
+              throw err;
+            }
+          }}
           onClose={closeDialog}
         />
       )}
@@ -767,7 +830,7 @@ export default function SchoolDetail({
           onConfirm={async () => {
             const id = dialog.prompt.id;
             await app.deletePrompt(id);
-            if (openId === id) setOpenId(null);
+            setOpenId((cur) => (cur === id ? null : cur));
             setDialog(null);
           }}
           onClose={closeDialog}

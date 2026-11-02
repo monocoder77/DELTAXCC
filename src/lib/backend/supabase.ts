@@ -71,8 +71,16 @@ function rows<T>(result: { data: unknown; error: ErrorLike | null }): T[] {
   return (result.data as T[] | null) ?? [];
 }
 
-/** Throws on error or a missing row (used after insert/update .select().single()). */
-function row<T>(result: { data: unknown; error: ErrorLike | null }): T {
+const UPDATE_BLOCKED =
+  "That item couldn't be updated. It may have been removed, or your account may not have permission to change it yet. Ask DeltaX to run the portal database update if this keeps happening.";
+
+/**
+ * Throws on error or a missing row (used after insert/update .select().single()).
+ * `noRow` replaces the generic PGRST116 message: an UPDATE that RLS filters out
+ * matches zero rows and surfaces as PGRST116, not as a permission error.
+ */
+function row<T>(result: { data: unknown; error: ErrorLike | null }, noRow?: string): T {
+  if (result.error?.code === 'PGRST116' && noRow) throw new Error(noRow);
   if (result.error) fail(result.error);
   if (result.data == null) fail(null, "That item couldn't be saved. Please try again.");
   return result.data as T;
@@ -211,6 +219,7 @@ export function createSupabaseBackend(): PortalBackend {
           .eq('id', id)
           .select()
           .single(),
+        UPDATE_BLOCKED,
       );
     },
 
@@ -272,7 +281,7 @@ export function createSupabaseBackend(): PortalBackend {
     async updateSchool(id, updates) {
       const patch: Record<string, unknown> = { ...updates };
       if ('deadline' in updates) patch.deadline = emptyToNull(updates.deadline);
-      return row<School>(await db().from('schools').update(patch).eq('id', id).select().single());
+      return row<School>(await db().from('schools').update(patch).eq('id', id).select().single(), UPDATE_BLOCKED);
     },
 
     async deleteSchool(id) {
@@ -293,7 +302,7 @@ export function createSupabaseBackend(): PortalBackend {
     },
 
     async updatePrompt(id, updates) {
-      return row<Prompt>(await db().from('prompts').update(updates).eq('id', id).select().single());
+      return row<Prompt>(await db().from('prompts').update(updates).eq('id', id).select().single(), UPDATE_BLOCKED);
     },
 
     async deletePrompt(id) {
@@ -352,6 +361,7 @@ export function createSupabaseBackend(): PortalBackend {
           .eq('id', id)
           .select()
           .single(),
+        UPDATE_BLOCKED,
       );
     },
 
@@ -424,7 +434,7 @@ export function createSupabaseBackend(): PortalBackend {
     async updateTask(id, updates) {
       const patch: Record<string, unknown> = { ...updates };
       if ('due_date' in updates) patch.due_date = emptyToNull(updates.due_date);
-      return row<Task>(await db().from('tasks').update(patch).eq('id', id).select().single());
+      return row<Task>(await db().from('tasks').update(patch).eq('id', id).select().single(), UPDATE_BLOCKED);
     },
 
     async deleteTask(id) {

@@ -68,6 +68,16 @@ function byTimeAsc(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+/** Newest first by created_at. Rows created in the same millisecond keep newest-inserted first. */
+function newestFirst<T extends { created_at: string }>(rows: T[]): T[] {
+  return [...rows].reverse().sort((a, b) => byTimeAsc(b.created_at, a.created_at));
+}
+
+/** Drops keys whose value is undefined so a partial patch never blanks a field. */
+function definedOnly<T extends object>(patch: T): Partial<T> {
+  return Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)) as Partial<T>;
+}
+
 function findOrThrow<T extends { id: string }>(rows: T[], id: string, label: string): T {
   const row = rows.find((r) => r.id === id);
   if (!row) throw new Error(`${label} not found.`);
@@ -248,7 +258,12 @@ export function createDemoBackend(): PortalBackend {
     updateSchool: (id, updates) =>
       delay(() => {
         const school = findOrThrow(db.schools, id, 'School');
-        Object.assign(school, updates);
+        const patch = definedOnly(updates);
+        if (patch.name !== undefined) {
+          patch.name = patch.name.trim();
+          if (!patch.name) throw new Error('Please enter a school name.');
+        }
+        Object.assign(school, patch);
         return school;
       }),
 
@@ -279,7 +294,7 @@ export function createDemoBackend(): PortalBackend {
     updatePrompt: (id, updates: PromptUpdates) =>
       delay(() => {
         const prompt = findOrThrow(db.prompts, id, 'Prompt');
-        Object.assign(prompt, updates);
+        Object.assign(prompt, definedOnly(updates));
         return prompt;
       }),
 
@@ -302,12 +317,13 @@ export function createDemoBackend(): PortalBackend {
         const existing = db.essays.find((e) => e.prompt_id === input.prompt_id && e.student_id === input.student_id);
         if (existing) return existing;
         findOrThrow(db.prompts, input.prompt_id, 'Prompt');
+        const content = input.content ?? '';
         const row: Essay = {
           id: nextId('essay'),
           prompt_id: input.prompt_id,
           student_id: input.student_id,
-          content: input.content ?? '',
-          status: 'not_started',
+          content,
+          status: content.trim() ? 'draft' : 'not_started',
           word_count: input.word_count ?? 0,
           updated_at: now(),
         };
@@ -318,14 +334,12 @@ export function createDemoBackend(): PortalBackend {
     updateEssay: (id, updates: EssayUpdates) =>
       delay(() => {
         const essay = findOrThrow(db.essays, id, 'Essay');
-        Object.assign(essay, updates, { updated_at: now() });
+        Object.assign(essay, definedOnly(updates), { updated_at: now() });
         return essay;
       }),
 
     listEssayVersions: (essayId) =>
-      delay(() =>
-        db.essay_versions.filter((v) => v.essay_id === essayId).sort((a, b) => byTimeAsc(b.created_at, a.created_at)),
-      ),
+      delay(() => newestFirst(db.essay_versions.filter((v) => v.essay_id === essayId))),
 
     createEssayVersion: (input) =>
       delay(() => {
@@ -389,8 +403,8 @@ export function createDemoBackend(): PortalBackend {
       delay(() => {
         const task = findOrThrow(db.tasks, id, 'Task');
         const { due_date, ...rest } = updates;
-        Object.assign(task, rest);
-        if (due_date !== undefined) task.due_date = due_date ?? '';
+        Object.assign(task, definedOnly(rest));
+        if ('due_date' in updates) task.due_date = due_date ?? '';
         return task;
       }),
 
@@ -417,7 +431,7 @@ export function createDemoBackend(): PortalBackend {
     updateActivity: (id, updates: ActivityUpdates) =>
       delay(() => {
         const activity = findOrThrow(db.activities, id, 'Activity');
-        Object.assign(activity, updates);
+        Object.assign(activity, definedOnly(updates));
       }),
 
     deleteActivity: (id) =>
@@ -482,9 +496,7 @@ export function createDemoBackend(): PortalBackend {
     listFiles: (studentIds) =>
       delay(() => {
         const wanted = new Set(studentIds);
-        return db.files
-          .filter((f) => wanted.has(f.student_id))
-          .sort((a, b) => byTimeAsc(b.created_at, a.created_at));
+        return newestFirst(db.files.filter((f) => wanted.has(f.student_id)));
       }),
 
     uploadFile: (input) =>
@@ -496,7 +508,7 @@ export function createDemoBackend(): PortalBackend {
           student_id: input.student_id,
           name: input.file.name,
           storage_path: `demo/${id}`,
-          folder: input.folder,
+          folder: input.folder || 'General',
           size_bytes: input.file.size,
           created_at: now(),
         };

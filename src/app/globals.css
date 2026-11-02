@@ -49,7 +49,7 @@ body {
 }
 
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-poppins), system-ui, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -264,7 +264,7 @@ input[type='date'].portal-input::-webkit-calendar-picker-indicator {
   outline: none;
   min-height: 320px;
   color: var(--color-portal-text);
-  font-family: var(--font-serif);
+  font-family: var(--font-libre), Baskerville, 'Times New Roman', serif;
   font-size: 1.02rem;
   line-height: 1.95;
 }

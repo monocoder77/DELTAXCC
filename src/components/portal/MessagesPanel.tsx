@@ -1,110 +1,320 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
-import { useMessages } from '@/lib/hooks';
+/* ==========================================================================
+   05 Messages (student portal)
+   Student: their thread with their counselor.
+   Counselor viewing a student: the same thread, created on first send.
+   ========================================================================== */
 
-export default function MessagesPanel() {
-  const { messages, consultant, sendMessage, senderProfile } = useMessages();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+import { useCallback, useMemo, useState } from 'react';
+import type { Conversation, Message, Profile } from '@/types/database';
+import { useMe, useMessaging, useNow, useProfile } from '@/lib/hooks';
+import type { StudentPanelProps } from './nav';
+import ChatThread from './ChatThread';
+import { Avatar, Button, EmptyState, LoadingBlock, Panel, PanelHeader, cx, timeAgo } from './ui/primitives';
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+/** Full-height frame for the thread. The shell's content column scrolls, so keep a floor. */
+const THREAD_FRAME =
+  'flex h-[calc(100dvh-9rem)] min-h-[440px] flex-col border-y border-portal-line-strong lg:h-[calc(100dvh-8rem)]';
 
-  const handleSend = () => {
-    const value = inputRef.current?.value?.trim();
-    if (!value) return;
-    sendMessage(value);
-    if (inputRef.current) inputRef.current.value = '';
-  };
+interface RankedThread {
+  conversation: Conversation;
+  messages: Message[];
+  last: Message | null;
+}
 
-  // Group messages by date
-  const groupedMessages: { date: string; msgs: typeof messages }[] = [];
-  messages.forEach(msg => {
-    const date = new Date(msg.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    const last = groupedMessages[groupedMessages.length - 1];
-    if (last && last.date === date) {
-      last.msgs.push(msg);
-    } else {
-      groupedMessages.push({ date, msgs: [msg] });
-    }
+function timeOf(iso: string | null | undefined): number {
+  if (!iso) return 0;
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? 0 : t;
+}
+
+/** Conversations with their messages, most recent activity first. */
+function rankThreads(conversations: Conversation[], messages: Message[]): RankedThread[] {
+  const byConv = new Map<string, Message[]>();
+  messages.forEach((m) => {
+    const list = byConv.get(m.conversation_id);
+    if (list) list.push(m);
+    else byConv.set(m.conversation_id, [m]);
   });
+  return conversations
+    .map((conversation) => {
+      const list = byConv.get(conversation.id) ?? [];
+      const last = list.reduce<Message | null>((acc, m) => (!acc || timeOf(m.created_at) >= timeOf(acc.created_at) ? m : acc), null);
+      return { conversation, messages: list, last };
+    })
+    .sort((a, b) => timeOf(b.last?.created_at) - timeOf(a.last?.created_at));
+}
+
+export default function MessagesPanel({ studentId, viewer }: StudentPanelProps) {
+  return viewer === 'counselor' ? <CounselorView studentId={studentId} /> : <StudentView studentId={studentId} />;
+}
+
+/* --------------------------------------------------------------------------
+   Student
+   -------------------------------------------------------------------------- */
+function StudentView({ studentId }: { studentId: string }) {
+  const me = useMe();
+  const { conversations, messages, peopleById, loading, error, send } = useMessaging(null);
+  const [pickedId, setPickedId] = useState<string | null>(null);
+
+  const threads = useMemo(
+    () => rankThreads(conversations.filter((c) => c.student_id === studentId), messages),
+    [conversations, messages, studentId],
+  );
+  const active = threads.find((t) => t.conversation.id === pickedId) ?? threads[0] ?? null;
+  const counselor = active ? peopleById[active.conversation.consultant_id] : undefined;
+  const counselorName = counselor?.full_name?.trim() || 'Your counselor';
+
+  const activeId = active?.conversation.id ?? null;
+  const onSend = useCallback(
+    async (text: string) => {
+      if (!activeId) throw new Error('There is no conversation to send to yet.');
+      return send(activeId, text);
+    },
+    [activeId, send],
+  );
+
+  const header = (
+    <PanelHeader
+      index="05"
+      eyebrow="Messages"
+      title={active ? counselorName : 'Messages'}
+      description={
+        active
+          ? 'A direct line to your counselor. Questions, drafts, deadlines, anything on your mind.'
+          : 'Your conversation with your counselor lives here.'
+      }
+      actions={
+        threads.length > 1 ? (
+          <ThreadSwitcher
+            threads={threads}
+            activeId={activeId}
+            labelFor={(t) => peopleById[t.conversation.consultant_id]?.full_name?.trim() || 'Counselor'}
+            onPick={setPickedId}
+          />
+        ) : undefined
+      }
+    />
+  );
+
+  if (!me || loading) {
+    return (
+      <Panel>
+        {header}
+        <LoadingBlock label="Loading messages" />
+      </Panel>
+    );
+  }
+
+  if (error) {
+    return (
+      <Panel>
+        {header}
+        <LoadError message={error} />
+      </Panel>
+    );
+  }
+
+  if (!active) {
+    return (
+      <Panel>
+        {header}
+        <EmptyState
+          title="No messages yet"
+          body="Your counselor will start this thread. Once they do, you can reply here, and every message stays in one place."
+        />
+      </Panel>
+    );
+  }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100dvh - 52px)' }}>
-      {/* Header */}
-      <div className="px-4 py-3 lg:px-6 lg:py-4 border-b border-portal-border-subtle flex items-center gap-3 flex-shrink-0">
-        <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-[rgba(168,85,247,0.12)] flex items-center justify-center text-portal-accent/80 text-xs lg:text-sm font-semibold">
-          {consultant?.avatar_initials || '?'}
-        </div>
-        <div>
-          <h2 className="text-sm lg:text-base font-semibold text-portal-text">{consultant?.full_name || 'Your Consultant'}</h2>
-          <p className="text-[10px] lg:text-xs text-portal-muted">Your Consultant</p>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto portal-scroll px-3 py-3 lg:px-6 lg:py-4 space-y-4 lg:space-y-6 min-h-0">
-        {groupedMessages.map(group => (
-          <div key={group.date}>
-            <div className="flex items-center gap-3 mb-3 lg:mb-4">
-              <div className="flex-1 h-px bg-portal-border-subtle" />
-              <span className="text-[9px] lg:text-[10px] text-portal-dim font-[family-name:var(--font-space-mono)]">{group.date}</span>
-              <div className="flex-1 h-px bg-portal-border-subtle" />
-            </div>
-            <div className="space-y-2 lg:space-y-3">
-              {group.msgs.map(msg => {
-                const isMe = msg.sender_id === senderProfile?.id;
-                return (
-                  <div key={msg.id} className={`flex gap-2 lg:gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
-                    <div className={`w-7 h-7 lg:w-8 lg:h-8 rounded-full flex items-center justify-center text-[10px] lg:text-xs font-semibold flex-shrink-0 ${
-                      isMe ? 'bg-[rgba(94,174,145,0.12)] text-portal-green' : 'bg-[rgba(168,85,247,0.12)] text-portal-accent/80'
-                    }`}>
-                      {msg.sender?.avatar_initials}
-                    </div>
-                    <div className={`max-w-[80%] lg:max-w-[70%] ${isMe ? 'text-right' : ''}`}>
-                      <div className={`rounded-2xl px-3 py-2 lg:px-4 lg:py-2.5 text-sm leading-relaxed ${
-                        isMe
-                          ? 'bg-portal-accent text-white rounded-tr-sm'
-                          : 'border border-portal-border-subtle text-portal-text rounded-tl-sm'
-                      }`}>
-                        {msg.content}
-                      </div>
-                      <p className="text-[9px] lg:text-[10px] text-portal-dim mt-0.5 lg:mt-1 font-[family-name:var(--font-space-mono)]">
-                        {new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Input Bar */}
-      <div className="px-3 py-2.5 lg:px-6 lg:py-4 border-t border-portal-border-subtle flex-shrink-0">
-        <div className="flex gap-2 lg:gap-3">
-          <input
-            ref={inputRef}
-            type="text"
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type a message..."
-            className="flex-1 border border-portal-border-subtle rounded-xl px-3 py-2.5 lg:px-4 lg:py-3 text-sm text-portal-text placeholder-portal-dim focus:outline-none focus:border-portal-accent/50 transition-colors"
+    <Panel>
+      {header}
+      <section className={THREAD_FRAME} aria-label={`Conversation with ${counselorName}`}>
+        <ThreadHeader person={counselor} name={counselorName} role="Counselor" thread={active} />
+        <div className="min-h-0 flex-1">
+          <ChatThread
+            key={active.conversation.id}
+            messages={active.messages}
+            peopleById={peopleById}
+            meId={me.id}
+            onSend={onSend}
+            emptyText={`No messages yet. Say hello to ${counselor?.full_name?.split(' ')[0] || 'your counselor'}.`}
           />
-          <button
-            onClick={handleSend}
-            className="bg-portal-accent hover:bg-portal-accent/90 text-white px-3 py-2.5 lg:px-4 lg:py-3 rounded-xl transition-colors"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
         </div>
+      </section>
+    </Panel>
+  );
+}
+
+/* --------------------------------------------------------------------------
+   Counselor viewing a student
+   -------------------------------------------------------------------------- */
+function CounselorView({ studentId }: { studentId: string }) {
+  const me = useMe();
+  const ids = useMemo(() => [studentId], [studentId]);
+  const { conversations, messages, peopleById, loading, error, send, startConversation } = useMessaging(ids);
+  const { profile: studentProfile } = useProfile(studentId);
+
+  const threads = useMemo(
+    () => rankThreads(conversations.filter((c) => c.student_id === studentId), messages),
+    [conversations, messages, studentId],
+  );
+  // Prefer the thread this counselor owns; otherwise the most recent one.
+  const active = threads.find((t) => t.conversation.consultant_id === me?.id) ?? threads[0] ?? null;
+  const student = studentProfile ?? peopleById[studentId];
+  const studentName = student?.full_name?.trim() || 'Student';
+  const otherCounselor =
+    active && me && active.conversation.consultant_id !== me.id ? peopleById[active.conversation.consultant_id] : undefined;
+
+  const activeConversation = active?.conversation ?? null;
+  const onSend = useCallback(
+    async (text: string) => {
+      const conversation = activeConversation ?? (await startConversation(studentId));
+      return send(conversation.id, text);
+    },
+    [activeConversation, startConversation, send, studentId],
+  );
+
+  const header = (
+    <PanelHeader
+      index="05"
+      eyebrow="Messages"
+      title={studentName}
+      description={`Your thread with ${student?.full_name?.split(' ')[0] || 'this student'}. They see these messages in their portal.`}
+    />
+  );
+
+  if (!me || loading) {
+    return (
+      <Panel>
+        {header}
+        <LoadingBlock label="Loading messages" />
+      </Panel>
+    );
+  }
+
+  if (error) {
+    return (
+      <Panel>
+        {header}
+        <LoadError message={error} />
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel>
+      {header}
+      <section className={THREAD_FRAME} aria-label={`Conversation with ${studentName}`}>
+        <ThreadHeader
+          person={student}
+          name={studentName}
+          role={otherCounselor ? `Thread with ${otherCounselor.full_name}` : student?.email || 'Student'}
+          thread={active}
+        />
+        <div className="min-h-0 flex-1">
+          <ChatThread
+            key={active?.conversation.id ?? 'new'}
+            messages={active?.messages ?? []}
+            peopleById={peopleById}
+            meId={me.id}
+            onSend={onSend}
+            emptyText={`No messages with ${student?.full_name?.split(' ')[0] || 'this student'} yet. Your first message starts the thread.`}
+          />
+        </div>
+      </section>
+    </Panel>
+  );
+}
+
+/* --------------------------------------------------------------------------
+   Pieces
+   -------------------------------------------------------------------------- */
+function ThreadHeader({
+  person,
+  name,
+  role,
+  thread,
+}: {
+  person: Profile | undefined;
+  name: string;
+  role: string;
+  thread: RankedThread | null;
+}) {
+  const now = useNow(60_000);
+  const count = thread?.messages.length ?? 0;
+  const lastAt = thread?.last?.created_at ?? null;
+  return (
+    <div className="flex flex-none items-center gap-3 border-b border-portal-line px-4 py-3 sm:px-6">
+      <Avatar initials={person?.avatar_initials || 'DX'} size={36} tone="accent" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-serif text-base font-bold leading-tight text-portal-text">{name}</p>
+        <p className="truncate font-mono text-[10px] uppercase tracking-[0.16em] text-portal-muted">{role}</p>
       </div>
+      <dl className="hidden flex-none items-center gap-5 font-mono text-[10px] uppercase tracking-[0.16em] sm:flex">
+        <div className="text-right">
+          <dt className="text-portal-dim">Messages</dt>
+          <dd className="tabular-nums text-portal-text">{String(count).padStart(2, '0')}</dd>
+        </div>
+        <span className="h-6 w-px bg-portal-line" aria-hidden="true" />
+        <div className="text-right">
+          <dt className="text-portal-dim">Last</dt>
+          <dd className="text-portal-text">{lastAt ? timeAgo(lastAt, now) : 'None yet'}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function ThreadSwitcher({
+  threads,
+  activeId,
+  labelFor,
+  onPick,
+}: {
+  threads: RankedThread[];
+  activeId: string | null;
+  labelFor: (t: RankedThread) => string;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1" role="group" aria-label="Choose a conversation">
+      {threads.map((t) => {
+        const on = t.conversation.id === activeId;
+        return (
+          <button
+            key={t.conversation.id}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onPick(t.conversation.id)}
+            className={cx(
+              'inline-flex h-8 items-center gap-2 border px-3 text-xs transition-colors',
+              on
+                ? 'border-portal-accent text-portal-text'
+                : 'border-portal-line-strong text-portal-muted hover:border-portal-text hover:text-portal-text',
+            )}
+          >
+            <span className={cx('inline-block h-1.5 w-1.5', on ? 'bg-portal-accent' : 'bg-portal-line-strong')} aria-hidden="true" />
+            {labelFor(t)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function LoadError({ message }: { message: string }) {
+  return (
+    <div role="alert" className="flex flex-col gap-4 border-l-2 border-portal-red py-2 pl-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-portal-red">Could not load messages</p>
+        <p className="mt-1 text-sm text-portal-body">{message}</p>
+      </div>
+      <Button size="sm" onClick={() => window.location.reload()}>
+        Try again
+      </Button>
     </div>
   );
 }

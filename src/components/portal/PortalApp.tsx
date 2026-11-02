@@ -265,21 +265,26 @@ function PortalLayout({ me, banner, onSignOut }: { me: Profile; banner?: ReactNo
     );
 
   return (
-    <div className="relative min-h-dvh bg-portal-bg text-portal-text">
+    <div
+      className="relative min-h-dvh bg-portal-bg text-portal-text"
+      style={{ '--portal-banner-h': banner ? '44px' : '0px' } as React.CSSProperties}
+    >
       <Ambient calm={studentTab === 'schools' && mode !== 'counselor'} />
 
       <div className="relative z-10">
-        {banner}
+        {banner && <div className="sticky top-0 z-50 h-[var(--portal-banner-h)] overflow-hidden">{banner}</div>}
 
         <div className="flex">
           {/* Desktop sidebar */}
-          <aside className="sticky top-0 hidden h-dvh flex-none lg:block">{sidebar}</aside>
+          <aside className="sticky top-[var(--portal-banner-h)] hidden h-[calc(100dvh-var(--portal-banner-h))] flex-none lg:block">
+            {sidebar}
+          </aside>
 
           {/* Mobile drawer */}
           {menuOpen && (
             <div className="fixed inset-0 z-50 lg:hidden">
               <div className="animate-fade absolute inset-0 bg-[#05030a]/80" onClick={() => setMenuOpen(false)} />
-              <div className="animate-rise absolute inset-y-0 left-0">{sidebar}</div>
+              <div className="animate-rise absolute inset-y-0 left-0 h-dvh">{sidebar}</div>
               <IconButton
                 aria-label="Close menu"
                 onClick={() => setMenuOpen(false)}
@@ -292,7 +297,7 @@ function PortalLayout({ me, banner, onSignOut }: { me: Profile; banner?: ReactNo
 
           <div className="min-w-0 flex-1">
             {/* Mobile top bar */}
-            <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-portal-line bg-portal-bg/90 px-4 backdrop-blur-md lg:hidden">
+            <div className="sticky top-[var(--portal-banner-h)] z-40 flex h-14 items-center gap-3 border-b border-portal-line bg-portal-bg/90 px-4 backdrop-blur-md lg:hidden">
               <IconButton aria-label="Open menu" onClick={() => setMenuOpen(true)}>
                 <IconMenu size={18} />
               </IconButton>

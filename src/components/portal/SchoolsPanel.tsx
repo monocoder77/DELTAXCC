@@ -5,7 +5,7 @@
    and a diamond per essay. Selecting a school opens SchoolDetail.
    ========================================================================== */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useApplications, useNow } from '@/lib/hooks';
 import type { SchoolWithEssays } from '@/lib/hooks';
 import type { SchoolCategory } from '@/types/database';
@@ -136,7 +136,6 @@ function SchoolRow({ school, index, now, onOpen }: { school: SchoolWithEssays; i
         type="button"
         onClick={onOpen}
         className={cx('group relative block w-full px-1 py-4 text-left transition-colors hover:bg-portal-hover md:py-5', COLS)}
-        aria-label={`Open ${school.name}`}
       >
         {/* Hover marker: a short accent rule that draws down the left edge. */}
         <span
@@ -162,7 +161,10 @@ function SchoolRow({ school, index, now, onOpen }: { school: SchoolWithEssays; i
           {plan && <span className="md:hidden"><Tag>{plan}</Tag></span>}
         </span>
 
-        <span className="hidden truncate font-mono text-xs text-portal-body md:block">{plan || <span className="text-portal-dim">None</span>}</span>
+        <span className="hidden truncate font-mono text-xs text-portal-body md:block">
+          {plan || <span className="text-portal-dim">None</span>}
+          <span className="sr-only"> plan</span>
+        </span>
 
         <span className="mt-3 flex items-baseline gap-2 pl-3 md:mt-0 md:block md:pl-0">
           <span className={cx('font-mono text-xs tabular-nums', overdue ? 'text-portal-red' : school.deadline ? 'text-portal-text' : 'text-portal-dim')}>
@@ -218,6 +220,8 @@ export default function SchoolsPanel({ studentId, viewer, onNavigate, focus }: S
   const now = useNow();
   const [filter, setFilter] = useState<Filter>('all');
   const [adding, setAdding] = useState(false);
+  // Stable: the shared Dialog refocuses whenever onClose changes identity.
+  const closeAdd = useCallback(() => setAdding(false), []);
 
   // Selected school follows the deep link, and clicks update both state and URL.
   const focusSchoolId = focus?.schoolId;
@@ -263,13 +267,14 @@ export default function SchoolsPanel({ studentId, viewer, onNavigate, focus }: S
       title="Add a school"
       submitLabel="Add school"
       onSubmit={(values) => app.addSchool(studentId, values)}
-      onClose={() => setAdding(false)}
+      onClose={closeAdd}
     />
   );
 
   if (app.loading && !hasData) {
     return (
       <Panel>
+        <PanelHeader index="02" eyebrow="Applications" title="Schools & Essays" />
         <LoadingBlock label="Loading schools" />
       </Panel>
     );

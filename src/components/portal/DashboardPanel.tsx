@@ -47,8 +47,10 @@ type Navigate = StudentPanelProps['onNavigate'];
 /* --------------------------------------------------------------------------
    Helpers
    -------------------------------------------------------------------------- */
+/** Status of a prompt's essay; anything missing or unrecognised counts as not started. */
 function promptStatus(p: PromptWithEssay): EssayStatus {
-  return p.essay?.status ?? 'not_started';
+  const status = p.essay?.status;
+  return status && status in ESSAY_STATUS ? status : 'not_started';
 }
 
 function isComplete(status: EssayStatus): boolean {
@@ -309,7 +311,7 @@ function Countdown({ upcoming, onNavigate }: { upcoming: { school: SchoolWithEss
       <section className="animate-rise mb-12" aria-label="Next deadline">
         <SectionLabel>Next deadline</SectionLabel>
         <p className="border-l border-portal-line py-2 pl-4 text-sm text-portal-muted">
-          No upcoming deadlines. Every school on the list has either passed its deadline or has no date yet.
+          No upcoming deadlines. Add a deadline to a school in Schools & Essays to start the countdown.
         </p>
       </section>
     );
@@ -348,7 +350,7 @@ function Countdown({ upcoming, onNavigate }: { upcoming: { school: SchoolWithEss
                 onClick={() => onNavigate('schools', { schoolId: lead.id })}
                 className="group block max-w-full text-left"
               >
-                <span className="block truncate font-serif text-2xl font-bold text-portal-text transition-colors group-hover:text-portal-accent-light sm:text-3xl">
+                <span className="block text-balance font-serif text-2xl font-bold leading-tight text-portal-text transition-colors group-hover:text-portal-accent-light sm:text-3xl">
                   {lead.name}
                 </span>
               </button>
@@ -525,7 +527,7 @@ function MatrixRow({ school, now, onNavigate }: { school: SchoolWithEssays; now:
             </span>
           )}
         </div>
-        <div className="pointer-events-auto flex flex-wrap items-center max-md:col-span-2 max-md:-ml-2">
+        <div className="flex flex-wrap items-center max-md:col-span-2 max-md:-ml-2">
           {school.prompts.length === 0 ? (
             <span className="px-2 text-xs text-portal-dim">No prompts yet</span>
           ) : (
@@ -539,7 +541,7 @@ function MatrixRow({ school, now, onNavigate }: { school: SchoolWithEssays; now:
                   title={label}
                   aria-label={label}
                   onClick={() => onNavigate('schools', { schoolId: school.id, promptId: p.id })}
-                  className="inline-flex h-8 w-8 items-center justify-center border border-transparent transition-colors hover:border-portal-line-strong"
+                  className="pointer-events-auto inline-flex h-8 w-8 items-center justify-center border border-transparent transition-colors hover:border-portal-line-strong"
                 >
                   <StatusGlyph status={status} size={11} />
                 </button>
@@ -606,11 +608,14 @@ function UpNext({ api, now, onNavigate }: { api: ReturnType<typeof useTasks>; no
               return (
                 <li key={task.id} className={cx('flex min-h-12 items-center gap-3 border-t border-portal-line py-2.5 first:border-t-0', busy && 'opacity-60')}>
                   <fieldset disabled={busy} className="m-0 flex min-w-0 flex-none border-0 p-0">
-                    <Checkbox
-                      checked={task.completed}
-                      onChange={() => void toggle(task)}
-                      label={task.completed ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
-                    />
+                    {/* The label widens the hit area of the 16px checkbox to 32px. */}
+                    <label className="-ml-2 inline-flex h-8 w-8 cursor-pointer items-center justify-center">
+                      <Checkbox
+                        checked={task.completed}
+                        onChange={() => void toggle(task)}
+                        label={task.completed ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
+                      />
+                    </label>
                   </fieldset>
                   {overdue && <span aria-hidden="true" className="h-1.5 w-1.5 flex-none rotate-45 bg-portal-red" />}
                   <div className="min-w-0 flex-1">
