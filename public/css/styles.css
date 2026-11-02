@@ -189,29 +189,31 @@ section {
 
 .ambient i {
     position: absolute;
-    top: 42%;
+    top: 50%;
     left: 50%;
-    width: 46vmin;
-    height: 46vmin;
+    width: 40vmin;
+    height: 40vmin;
     border: 1px solid var(--accent-light);
     opacity: 0;
-    transform: translate(-50%, -50%) rotate(45deg) scale(0.1);
-    animation: ripple 16s linear infinite;
+    transform: translate(-50%, -50%) rotate(45deg) scale(0.3);
+    animation: ripple 14s linear infinite;
 }
 
-.ambient i:nth-child(2) { animation-delay: -4s; }
-.ambient i:nth-child(3) { animation-delay: -8s; }
-.ambient i:nth-child(4) { animation-delay: -12s; }
+.ambient i:nth-child(2) { animation-delay: -3.5s; }
+.ambient i:nth-child(3) { animation-delay: -7s; }
+.ambient i:nth-child(4) { animation-delay: -10.5s; }
 
 @keyframes breathe {
     0%, 100% { opacity: 0.03; }
     50% { opacity: 0.13; }
 }
 
+/* Rings start around the headline, cross behind the words, and fade out
+   before reaching the edges of the screen. */
 @keyframes ripple {
-    0% { opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(0.1); }
-    12% { opacity: 0.2; }
-    100% { opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(3.6); }
+    0% { opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(0.3); }
+    15% { opacity: 0.1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(2.3); }
 }
 
 /* --------------------------------------------------------------------------

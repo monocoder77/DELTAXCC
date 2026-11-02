@@ -1,74 +1,305 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   DeltaX Portal design system
+   Geometric, card-free, no gradients. Matches the marketing site:
+   hairline rules, square corners, diamond accents, flat purple accent,
+   and a breathing tint with rippling diamonds behind everything.
+   ========================================================================== */
+
 @theme inline {
-  /* Match the website's purple-tinted dark theme */
-  --color-portal-bg: #1a0a2e;
-  --color-portal-surface: rgba(255, 255, 255, 0.04);
-  --color-portal-card: rgba(255, 255, 255, 0.05);
-  --color-portal-elevated: rgba(255, 255, 255, 0.08);
-  --color-portal-border: rgba(255, 255, 255, 0.18);
-  --color-portal-border-subtle: rgba(255, 255, 255, 0.07);
+  /* Fonts (loaded in layout.tsx via next/font) */
+  --font-sans: var(--font-poppins), system-ui, sans-serif;
+  --font-serif: var(--font-libre), Baskerville, 'Times New Roman', serif;
+  --font-mono: var(--font-space-mono), ui-monospace, monospace;
+
+  /* Surfaces */
+  --color-portal-bg: #0b0714;
+  --color-portal-raise: rgba(11, 7, 20, 0.72);
+  --color-portal-hover: rgba(255, 255, 255, 0.04);
+  --color-portal-select: rgba(168, 85, 247, 0.1);
+
+  /* Lines */
+  --color-portal-line: rgba(255, 255, 255, 0.09);
+  --color-portal-line-strong: rgba(255, 255, 255, 0.2);
+
+  /* Text */
+  --color-portal-text: #f5f2fb;
+  --color-portal-body: #c8bfd9;
+  --color-portal-muted: #8d82a3;
+  --color-portal-dim: #5f5674;
+
+  /* Brand + semantic (flat, no gradients) */
   --color-portal-accent: #a855f7;
-  --color-portal-accent-dim: #7e22ce;
+  --color-portal-accent-light: #c4a1ff;
+  --color-portal-accent-deep: #7c3aed;
+  --color-portal-gold: #dcbf6a;
+  --color-portal-green: #6fd3a0;
+  --color-portal-amber: #e9a85c;
+  --color-portal-red: #f2777a;
+  --color-portal-blue: #7fb2f0;
 
-  /* Softer semantic colors */
-  --color-portal-green: #5eae91;
-  --color-portal-amber: #c9955a;
-  --color-portal-red: #c47070;
-  --color-portal-rose: #b87a7a;
+  --ease-portal: cubic-bezier(0.22, 1, 0.36, 1);
+}
 
-  /* Typography */
-  --color-portal-text: #e0dce6;
-  --color-portal-body: #a8a3b8;
-  --color-portal-muted: #8c86a0;
-  --color-portal-dim: #5e576e;
-  --color-portal-heading: #7b6f99;
-
-  /* Sidebar */
-  --color-portal-sidebar: rgba(14, 6, 24, 0.97);
-  --color-portal-sidebar-active: rgba(168, 85, 247, 0.08);
-
-  /* Interaction */
-  --color-portal-hover: rgba(255, 255, 255, 0.06);
-
-  /* Shadows */
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.06);
+html,
+body {
+  background: var(--color-portal-bg);
+  color: var(--color-portal-text);
 }
 
 body {
-  font-family: 'Libre Baskerville', Baskerville, 'Times New Roman', serif;
-  line-height: 1.7;
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Tiptap editor styles */
+::selection {
+  background: var(--color-portal-accent);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-portal-accent-light);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Ambient background: breathing tint + rippling diamonds
+   -------------------------------------------------------------------------- */
+.portal-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.portal-ambient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-portal-accent-deep);
+  opacity: 0.04;
+  animation: portal-breathe 8s ease-in-out infinite;
+}
+
+.portal-ambient i {
+  position: absolute;
+  top: 42%;
+  left: 58%;
+  width: 40vmin;
+  height: 40vmin;
+  border: 1px solid var(--color-portal-accent-light);
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(45deg) scale(0.3);
+  animation: portal-ripple 14s linear infinite;
+}
+
+.portal-ambient i:nth-child(2) { animation-delay: -3.5s; }
+.portal-ambient i:nth-child(3) { animation-delay: -7s; }
+.portal-ambient i:nth-child(4) { animation-delay: -10.5s; }
+
+/* Calmer variant behind dense working screens (essay editor) */
+.portal-ambient[data-calm='true'] i {
+  animation-duration: 28s;
+}
+
+@keyframes portal-breathe {
+  0%, 100% { opacity: 0.03; }
+  50% { opacity: 0.12; }
+}
+
+@keyframes portal-ripple {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(0.3); }
+  15% { opacity: 0.1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(2.3); }
+}
+
+/* --------------------------------------------------------------------------
+   Motion helpers
+   -------------------------------------------------------------------------- */
+@keyframes portal-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes portal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes portal-spin-square {
+  to { transform: rotate(405deg); }
+}
+
+@keyframes portal-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes portal-grow-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.animate-rise {
+  animation: portal-rise 0.6s var(--ease-portal) both;
+}
+
+.animate-fade {
+  animation: portal-fade 0.4s ease both;
+}
+
+.animate-pulse-soft {
+  animation: portal-pulse 2s ease-in-out infinite;
+}
+
+.animate-grow-x {
+  transform-origin: left;
+  animation: portal-grow-x 0.9s var(--ease-portal) both;
+}
+
+/* Stagger children: add .stagger to a parent */
+.stagger > * {
+  animation: portal-rise 0.6s var(--ease-portal) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.stagger > *:nth-child(3) { animation-delay: 0.1s; }
+.stagger > *:nth-child(4) { animation-delay: 0.14s; }
+.stagger > *:nth-child(5) { animation-delay: 0.18s; }
+.stagger > *:nth-child(6) { animation-delay: 0.22s; }
+.stagger > *:nth-child(7) { animation-delay: 0.26s; }
+.stagger > *:nth-child(n + 8) { animation-delay: 0.3s; }
+
+/* --------------------------------------------------------------------------
+   Form control reset (square, flat)
+   -------------------------------------------------------------------------- */
+.portal-input {
+  width: 100%;
+  background: rgba(11, 7, 20, 0.6);
+  border: 1px solid var(--color-portal-line-strong);
+  border-radius: 0;
+  color: var(--color-portal-text);
+  font-size: 0.9rem;
+  padding: 0.6rem 0.8rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  appearance: none;
+}
+
+.portal-input::placeholder {
+  color: var(--color-portal-dim);
+}
+
+.portal-input:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.portal-input:focus {
+  outline: none;
+  border-color: var(--color-portal-accent);
+  box-shadow: 0 0 0 1px var(--color-portal-accent);
+}
+
+select.portal-input {
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238d82a3' stroke-width='2' stroke-linecap='square'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 0.9rem;
+}
+
+select.portal-input option {
+  background: #0b0714;
+  color: var(--color-portal-text);
+}
+
+input[type='date'].portal-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+/* Square checkbox */
+.portal-check {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  border: 1px solid var(--color-portal-line-strong);
+  background: transparent;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.portal-check::after {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  background: #fff;
+  transform: scale(0) rotate(45deg);
+  transition: transform 0.2s var(--ease-portal);
+}
+
+.portal-check:hover {
+  border-color: var(--color-portal-accent-light);
+}
+
+.portal-check:checked {
+  background: var(--color-portal-accent);
+  border-color: var(--color-portal-accent);
+}
+
+.portal-check:checked::after {
+  transform: scale(1) rotate(45deg);
+}
+
+/* --------------------------------------------------------------------------
+   Tiptap editor
+   -------------------------------------------------------------------------- */
 .tiptap {
   outline: none;
-  min-height: 150px;
-  padding: 1rem;
-  color: #e0dce6;
-  font-size: 0.9375rem;
-  line-height: 1.7;
+  min-height: 320px;
+  color: var(--color-portal-text);
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  line-height: 1.95;
 }
 
 .tiptap p {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .tiptap p:last-child {
   margin-bottom: 0;
 }
 
+.tiptap strong { color: #fff; }
+.tiptap em { color: var(--color-portal-accent-light); }
+
 .tiptap p.is-editor-empty:first-child::before {
-  color: #5e576e;
+  color: var(--color-portal-dim);
   content: attr(data-placeholder);
   float: left;
   height: 0;
   pointer-events: none;
+  font-style: italic;
 }
 
-/* Scrollbar styling */
+/* --------------------------------------------------------------------------
+   Scrollbars
+   -------------------------------------------------------------------------- */
+.portal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
 .portal-scroll::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 .portal-scroll::-webkit-scrollbar-track {
@@ -77,9 +308,27 @@ body {
 
 .portal-scroll::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
 }
 
 .portal-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .portal-ambient i {
+    display: none;
+  }
+
+  .portal-ambient::before {
+    opacity: 0.06;
+  }
 }

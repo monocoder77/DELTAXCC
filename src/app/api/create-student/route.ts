@@ -1,11 +1,38 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabase } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
-  const { email, password, fullName, assignedConsultantId } = await request.json();
+  // Only signed-in counselors may create accounts. This route uses the
+  // service role key, so it must never be callable anonymously.
+  const supabase = await createServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+  }
+  const { data: caller } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+  if (caller?.role !== 'consultant') {
+    return NextResponse.json({ error: 'Only counselors can create student accounts' }, { status: 403 });
+  }
 
-  if (!email || !password || !fullName) {
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
+  const { email, password, fullName, assignedConsultantId } = body as Record<string, unknown>;
+
+  if (typeof email !== 'string' || typeof password !== 'string' || typeof fullName !== 'string' || !email || !password || !fullName.trim()) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  }
+  if (password.length < 8) {
+    return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+  }
+  if (assignedConsultantId != null && typeof assignedConsultantId !== 'string') {
+    return NextResponse.json({ error: 'Invalid counselor' }, { status: 400 });
   }
 
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -33,7 +60,8 @@ export async function POST(request: NextRequest) {
 
   // Create profile
   const initials = fullName
-    .split(' ')
+    .trim()
+    .split(/\s+/)
     .map((n: string) => n[0])
     .join('')
     .toUpperCase()
@@ -42,7 +70,7 @@ export async function POST(request: NextRequest) {
   const { error: profileError } = await supabaseAdmin.from('profiles').insert({
     id: authData.user.id,
     role: 'student',
-    full_name: fullName,
+    full_name: fullName.trim(),
     email,
     avatar_initials: initials,
     assigned_consultant_id: assignedConsultantId || null,

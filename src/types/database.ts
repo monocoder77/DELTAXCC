@@ -44,6 +44,14 @@ export interface Essay {
   updated_at: string;
 }
 
+export interface EssayVersion {
+  id: string;
+  essay_id: string;
+  content: string;
+  word_count: number;
+  created_at: string;
+}
+
 export interface EssayComment {
   id: string;
   essay_id: string;
