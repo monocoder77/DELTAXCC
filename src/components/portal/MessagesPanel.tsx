@@ -62,6 +62,9 @@ function StudentView({ studentId }: { studentId: string }) {
     () => rankThreads(conversations.filter((c) => c.student_id === studentId), messages),
     [conversations, messages, studentId],
   );
+  // Once a thread is on screen, stay on it: a message arriving in another thread
+  // must not switch conversations (and wipe a reply being typed).
+  if (pickedId === null && threads[0]) setPickedId(threads[0].conversation.id);
   const active = threads.find((t) => t.conversation.id === pickedId) ?? threads[0] ?? null;
   const counselor = active ? peopleById[active.conversation.consultant_id] : undefined;
   const counselorName = counselor?.full_name?.trim() || 'Your counselor';
@@ -216,7 +219,7 @@ function CounselorView({ studentId }: { studentId: string }) {
         />
         <div className="min-h-0 flex-1">
           <ChatThread
-            key={active?.conversation.id ?? 'new'}
+            key={studentId}
             messages={active?.messages ?? []}
             peopleById={peopleById}
             meId={me.id}

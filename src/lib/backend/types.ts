@@ -32,6 +32,20 @@ export type TaskUpdates = Partial<Pick<Task, 'title' | 'category' | 'completed' 
 export type NewActivity = Omit<Activity, 'id'>;
 export type ActivityUpdates = Partial<Omit<Activity, 'id' | 'student_id'>>;
 
+/**
+ * Thrown by updateEssay when the essay changed since `expectedUpdatedAt`
+ * (another device, or a counselor and student editing at once).
+ * Carries the current server row so the UI can resolve the conflict.
+ */
+export class EssayConflictError extends Error {
+  readonly current: Essay | null;
+  constructor(current: Essay | null) {
+    super(current ? 'This essay was changed somewhere else while you were editing.' : 'This essay no longer exists.');
+    this.name = 'EssayConflictError';
+    this.current = current;
+  }
+}
+
 /** Tables a mutation can touch. Hooks use these to refresh each other. */
 export type TableName =
   | 'profiles'
@@ -80,9 +94,13 @@ export interface PortalBackend {
 
   /* Essays ---------------------------------------------------------------- */
   listEssays(studentIds: string[]): Promise<Essay[]>;
-  createEssay(input: { prompt_id: string; student_id: string; content?: string; word_count?: number }): Promise<Essay>;
-  /** Also sets updated_at = now. */
-  updateEssay(id: string, updates: EssayUpdates): Promise<Essay>;
+  /** Returns the existing row (created: false) if one already exists for (prompt_id, student_id). */
+  createEssay(input: { prompt_id: string; student_id: string; content?: string; word_count?: number }): Promise<{ essay: Essay; created: boolean }>;
+  /**
+   * Also sets updated_at = now. With expectedUpdatedAt, only updates if the row
+   * is still at that version; otherwise throws EssayConflictError.
+   */
+  updateEssay(id: string, updates: EssayUpdates, expectedUpdatedAt?: string): Promise<Essay>;
   /** Newest first. */
   listEssayVersions(essayId: string): Promise<EssayVersion[]>;
   createEssayVersion(input: { essay_id: string; content: string; word_count: number }): Promise<EssayVersion>;

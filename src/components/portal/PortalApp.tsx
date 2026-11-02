@@ -49,7 +49,11 @@ export default function PortalApp({ banner, onSignedOut }: { banner?: ReactNode;
   const { profile, loading, user, signOut } = useAuth();
 
   const handleSignOut = useCallback(async () => {
-    await signOut();
+    try {
+      await signOut();
+    } catch {
+      return; // Cancelled (e.g. unsaved essay edits); stay in the portal.
+    }
     if (onSignedOut) onSignedOut();
     else window.location.assign('/portal/login');
   }, [signOut, onSignedOut]);

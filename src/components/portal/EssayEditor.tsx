@@ -16,7 +16,8 @@ import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 import { errorMessage, useEssayVersions, useMe, useNow } from '@/lib/hooks';
 import type { ApplicationsApi, SchoolWithEssays } from '@/lib/hooks';
-import type { EssayUpdates } from '@/lib/backend/types';
+import { EssayConflictError, type EssayUpdates } from '@/lib/backend/types';
+import { registerPendingSave } from '@/lib/pendingSaves';
 import type { Essay, EssayStatus, EssayVersion, PromptWithEssay } from '@/types/database';
 import type { Viewer } from './nav';
 import EssayContent from './EssayContent';
@@ -44,7 +45,57 @@ import { IconClose, IconFocus, IconHistory } from './ui/icons';
 const AUTOSAVE_DELAY_MS = 1200;
 const AUTO_SNAPSHOT_MS = 10 * 60 * 1000;
 
-type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string };
+type SaveState =
+  | { kind: 'idle' }
+  | { kind: 'saving' }
+  | { kind: 'error'; message: string }
+  /** The essay changed elsewhere; autosave is paused until the user picks a version. */
+  | { kind: 'conflict'; server: Essay };
+
+/* --------------------------------------------------------------------------
+   On-device draft: unsaved text survives a closed tab, a failed save, or
+   leaving the screen, and is cleared once the server has it.
+   -------------------------------------------------------------------------- */
+interface LocalDraft {
+  html: string;
+  /** updated_at of the server version this draft was based on */
+  base: string | null;
+  /** text of that server version, to tell a real conflict from a status-only change */
+  baseContent: string | null;
+}
+
+function draftKey(studentId: string, promptId: string) {
+  return `deltax:essay-draft:${studentId}:${promptId}`;
+}
+
+function readDraft(key: string): LocalDraft | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<LocalDraft>;
+    return typeof parsed.html === 'string'
+      ? { html: parsed.html, base: parsed.base ?? null, baseContent: typeof parsed.baseContent === 'string' ? parsed.baseContent : null }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(key: string, draft: LocalDraft) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    // Storage full or blocked: the server autosave still runs.
+  }
+}
+
+function clearDraft(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
 type Confirm = { kind: 'submit-over'; over: number } | { kind: 'mark-submitted' } | null;
 type SnapshotResult = 'created' | 'unchanged' | 'unavailable';
 
@@ -135,6 +186,14 @@ function SaveStatus({
   now: Date;
   onRetry: () => void;
 }) {
+  if (state.kind === 'conflict') {
+    return (
+      <span role="alert" className="inline-flex items-center gap-2 font-mono text-[11px] text-portal-amber">
+        <span className="inline-block h-1.5 w-1.5 bg-portal-amber" aria-hidden="true" />
+        Paused: changed elsewhere
+      </span>
+    );
+  }
   if (state.kind === 'error') {
     return (
       <span role="alert" className="inline-flex flex-wrap items-center gap-2 font-mono text-[11px] text-portal-red">
@@ -340,6 +399,7 @@ export default function EssayEditor({
   const statusRef = useRef<EssayStatus>(status);
   useEffect(() => {
     appRef.current = app;
+    draftKeyRef.current = draftKeyValue;
     snapshotRef.current = snapshot;
     versionsRef.current = versions;
     versionsLoadingRef.current = versionsLoading;
@@ -352,11 +412,16 @@ export default function EssayEditor({
   /* ---- Save engine ------------------------------------------------------ */
   const latestRef = useRef({ html: essay?.content ?? '', words: essay?.word_count ?? 0 });
   const lastSyncedRef = useRef(essay?.content ?? '');
+  /** Server version (updated_at) the editor's text is based on; saves only apply on top of it. */
+  const baseUpdatedAtRef = useRef<string | null>(essay?.updated_at ?? null);
+  const conflictRef = useRef(false);
+  const draftKeyValue = draftKey(studentId, prompt.id);
+  const draftKeyRef = useRef(draftKeyValue);
   const revRef = useRef(0);
   const savedRevRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightRef = useRef<Promise<void> | null>(null);
-  const ensuringRef = useRef<Promise<Essay> | null>(null);
+  const ensuringRef = useRef<Promise<{ essay: Essay; created: boolean }> | null>(null);
   const snapAnchorRef = useRef<number | null>(null);
 
   const [dirty, setDirty] = useState(false);
@@ -375,10 +440,16 @@ export default function EssayEditor({
       ensuringRef.current = appRef.current.ensureEssay(prompt.id, studentId);
     }
     try {
-      const created = await ensuringRef.current;
-      essayIdRef.current = created.id;
-      statusRef.current = created.status;
-      return created.id;
+      const { essay: found, created } = await ensuringRef.current;
+      essayIdRef.current = found.id;
+      statusRef.current = found.status;
+      // A row already existed with text this editor never saw (written on another device):
+      // don't overwrite it, ask which version to keep.
+      if (!created && (found.content ?? '') !== lastSyncedRef.current && (found.content ?? '').replace(/<[^>]*>/g, '').trim()) {
+        throw new EssayConflictError(found);
+      }
+      baseUpdatedAtRef.current = found.updated_at;
+      return found.id;
     } finally {
       ensuringRef.current = null;
     }
@@ -409,6 +480,7 @@ export default function EssayEditor({
       timerRef.current = null;
     }
     while (inFlightRef.current) await inFlightRef.current;
+    if (conflictRef.current) return false;
     if (revRef.current === savedRevRef.current) return true;
 
     const rev = revRef.current;
@@ -416,10 +488,26 @@ export default function EssayEditor({
     const run = (async () => {
       setSaveState({ kind: 'saving' });
       const id = await ensureEssayId();
-      const updates: EssayUpdates = { content: html, word_count: words };
-      if (statusRef.current === 'not_started') updates.status = 'draft';
-      const updated = await appRef.current.updateEssay(id, updates);
+      const attempt = () => {
+        const updates: EssayUpdates = { content: html, word_count: words };
+        if (statusRef.current === 'not_started') updates.status = 'draft';
+        return appRef.current.updateEssay(id, updates, baseUpdatedAtRef.current ?? undefined);
+      };
+      let updated: Essay;
+      try {
+        updated = await attempt();
+      } catch (err) {
+        // Only the status or timestamp moved (e.g. a counselor approved it): rebase and retry once.
+        if (err instanceof EssayConflictError && err.current && err.current.content === lastSyncedRef.current) {
+          baseUpdatedAtRef.current = err.current.updated_at;
+          statusRef.current = err.current.status;
+          updated = await attempt();
+        } else {
+          throw err;
+        }
+      }
       statusRef.current = updated.status;
+      baseUpdatedAtRef.current = updated.updated_at;
       lastSyncedRef.current = html;
       savedRevRef.current = Math.max(savedRevRef.current, rev);
     })();
@@ -433,6 +521,7 @@ export default function EssayEditor({
       setSaveState({ kind: 'idle' });
       const stillDirty = revRef.current !== savedRevRef.current;
       setDirty(stillDirty);
+      if (!stillDirty) clearDraft(draftKeyRef.current);
       if (stillDirty && !timerRef.current) timerRef.current = setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
       const anchor = snapAnchorRef.current;
       if (anchor !== null && !versionsLoadingRef.current && Date.now() - anchor >= AUTO_SNAPSHOT_MS) {
@@ -442,7 +531,12 @@ export default function EssayEditor({
       }
       return true;
     } catch (err) {
-      setSaveState({ kind: 'error', message: errorMessage(err) });
+      if (err instanceof EssayConflictError && err.current) {
+        conflictRef.current = true;
+        setSaveState({ kind: 'conflict', server: err.current });
+      } else {
+        setSaveState({ kind: 'error', message: errorMessage(err) });
+      }
       return false;
     } finally {
       if (inFlightRef.current === settled) inFlightRef.current = null;
@@ -456,6 +550,7 @@ export default function EssayEditor({
 
   const handleUpdate = useCallback((e: Editor) => {
     latestRef.current = { html: e.getHTML(), words: wordsOf(e) };
+    writeDraft(draftKeyRef.current, { html: latestRef.current.html, base: baseUpdatedAtRef.current, baseContent: lastSyncedRef.current });
     revRef.current += 1;
     if (snapAnchorRef.current === null) snapAnchorRef.current = Date.now();
     setDirty(true);
@@ -523,18 +618,88 @@ export default function EssayEditor({
 
   // Pull in server changes, but never over the top of unsaved edits.
   const serverContent = essay?.content ?? '';
+  const serverUpdatedAt = essay?.updated_at ?? null;
   useEffect(() => {
     if (!editor) return;
-    if (serverContent === lastSyncedRef.current) return;
-    if (revRef.current !== savedRevRef.current || inFlightRef.current) return;
+    if (serverContent === lastSyncedRef.current) {
+      // Same text (e.g. only the status changed): build on the newer version.
+      if (serverUpdatedAt && !conflictRef.current) baseUpdatedAtRef.current = serverUpdatedAt;
+      return;
+    }
+    if (revRef.current !== savedRevRef.current || inFlightRef.current || conflictRef.current) return;
     lastSyncedRef.current = serverContent;
+    baseUpdatedAtRef.current = serverUpdatedAt;
     if (editor.getHTML() !== serverContent) {
       editor.commands.setContent(serverContent, { emitUpdate: false });
       latestRef.current = { html: editor.getHTML(), words: wordsOf(editor) };
     }
-  }, [editor, serverContent]);
+  }, [editor, serverContent, serverUpdatedAt]);
 
-  // Flush on unmount.
+  // Bring back unsaved text from this device (closed tab, failed save, signed out).
+  const [restoredNote, setRestoredNote] = useState(false);
+  useEffect(() => {
+    if (!editor || readOnly) return;
+    const draft = readDraft(draftKeyRef.current);
+    if (!draft) return;
+    if (draft.html === (editor.getHTML() ?? '') || draft.html === lastSyncedRef.current) {
+      clearDraft(draftKeyRef.current);
+      return;
+    }
+    // Saves will only apply if the server is still at the version the draft was based on;
+    // otherwise the conflict prompt lets the student choose.
+    // A draft with no base was written before the essay existed on the server. If a row
+    // exists now, use a base that can never match so the save asks instead of overwriting.
+    baseUpdatedAtRef.current = draft.base ?? (essayIdRef.current ? '1970-01-01T00:00:00.000Z' : null);
+    // Compare future conflicts against the text the draft started from, not what just loaded.
+    lastSyncedRef.current = draft.baseContent ?? '\u0000unknown-base';
+    editor.commands.setContent(draft.html, { emitUpdate: true });
+    setRestoredNote(true);
+    // Run once per mounted editor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
+  // Let sign-out write pending edits first.
+  useEffect(() => registerPendingSave(() => saveRef.current()), []);
+
+  /* ---- Conflict resolution ---------------------------------------------- */
+  const conflict = saveState.kind === 'conflict' ? saveState.server : null;
+  const [resolving, setResolving] = useState(false);
+
+  async function resolveConflict(choice: 'theirs' | 'mine') {
+    if (!editor || !conflict || resolving) return;
+    setResolving(true);
+    try {
+      const mine = latestRef.current;
+      const server = conflict;
+      // Keep the version that is not chosen in history so nothing is ever lost.
+      try {
+        if (choice === 'theirs') await snapshotRef.current(mine.html, mine.words);
+        else await snapshotRef.current(server.content, server.word_count);
+      } catch {
+        // Version history unavailable: still resolve, the local draft remains as a backup.
+      }
+      conflictRef.current = false;
+      baseUpdatedAtRef.current = server.updated_at;
+      statusRef.current = server.status;
+      if (choice === 'theirs') {
+        lastSyncedRef.current = server.content;
+        editor.commands.setContent(server.content, { emitUpdate: false });
+        latestRef.current = { html: editor.getHTML(), words: wordsOf(editor) };
+        savedRevRef.current = revRef.current;
+        clearDraft(draftKeyRef.current);
+        setDirty(false);
+        setSaveState({ kind: 'idle' });
+      } else {
+        lastSyncedRef.current = server.content;
+        revRef.current += 1;
+        await save();
+      }
+    } finally {
+      setResolving(false);
+    }
+  }
+
+  // Flush on unmount (the local draft covers a failed flush).
   useEffect(
     () => () => {
       void saveRef.current();
@@ -841,6 +1006,32 @@ export default function EssayEditor({
                   <span aria-hidden="true" className="pointer-events-none absolute left-0 top-8 h-4 w-4 border-l border-t border-portal-accent/50" />
                   <span aria-hidden="true" className="pointer-events-none absolute right-0 top-8 h-4 w-4 border-r border-t border-portal-accent/50" />
                 </>
+              )}
+
+              {conflict && (
+                <div role="alert" className="mb-5 max-w-[68ch] border-l-2 border-portal-amber py-1 pl-4">
+                  <p className="text-sm font-medium text-portal-text">This essay changed somewhere else while you were editing.</p>
+                  <p className="mt-1 text-sm text-portal-body">
+                    {conflict.updated_at ? `The other version was saved ${timeAgo(conflict.updated_at, now)}. ` : ''}
+                    Autosave is paused. Pick which text to keep; the other one is saved to History so nothing is lost.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button size="sm" variant="primary" disabled={resolving} onClick={() => void resolveConflict('mine')}>
+                      Keep my version
+                    </Button>
+                    <Button size="sm" disabled={resolving} onClick={() => void resolveConflict('theirs')}>
+                      Use the other version
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {restoredNote && !conflict && (
+                <p className="mb-4 flex max-w-[68ch] items-center justify-between gap-3 border-l-2 border-portal-accent py-1 pl-4 text-sm text-portal-body">
+                  Restored unsaved changes from this device.
+                  <button type="button" className="font-mono text-[10px] uppercase tracking-[0.14em] text-portal-muted hover:text-portal-text" onClick={() => setRestoredNote(false)}>
+                    Dismiss
+                  </button>
+                </p>
               )}
 
               {/* Toolbar */}

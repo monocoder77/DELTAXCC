@@ -29,6 +29,7 @@ import type {
   PromptUpdates,
   TaskUpdates,
 } from './types';
+import { EssayConflictError } from './types';
 
 const LATENCY_MS = 120;
 const AUTO_REPLY_DELAY_MS = 2500;
@@ -315,7 +316,7 @@ export function createDemoBackend(): PortalBackend {
     createEssay: (input) =>
       delay(() => {
         const existing = db.essays.find((e) => e.prompt_id === input.prompt_id && e.student_id === input.student_id);
-        if (existing) return existing;
+        if (existing) return { essay: existing, created: false };
         findOrThrow(db.prompts, input.prompt_id, 'Prompt');
         const content = input.content ?? '';
         const row: Essay = {
@@ -328,13 +329,19 @@ export function createDemoBackend(): PortalBackend {
           updated_at: now(),
         };
         db.essays.push(row);
-        return row;
+        return { essay: row, created: true };
       }),
 
-    updateEssay: (id, updates: EssayUpdates) =>
+    updateEssay: (id, updates: EssayUpdates, expectedUpdatedAt?: string) =>
       delay(() => {
         const essay = findOrThrow(db.essays, id, 'Essay');
-        Object.assign(essay, definedOnly(updates), { updated_at: now() });
+        if (expectedUpdatedAt && essay.updated_at !== expectedUpdatedAt) {
+          throw new EssayConflictError(structuredClone(essay));
+        }
+        // Keep timestamps strictly increasing so back-to-back saves never share one.
+        let stamp = now();
+        if (stamp <= essay.updated_at) stamp = new Date(new Date(essay.updated_at).getTime() + 1).toISOString();
+        Object.assign(essay, definedOnly(updates), { updated_at: stamp });
         return essay;
       }),
 

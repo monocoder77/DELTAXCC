@@ -17,7 +17,7 @@ import type {
   SharedFile,
   Task,
 } from '@/types/database';
-import type { PortalBackend } from './types';
+import { EssayConflictError, type PortalBackend } from './types';
 
 /* Errors ------------------------------------------------------------------ */
 
@@ -40,9 +40,11 @@ function friendlyMessage(error: ErrorLike | null | undefined, fallback = 'Someth
   const message = (error.message ?? '').trim();
   const lower = message.toLowerCase();
 
-  if (code === '42501' || code === '42P17' || lower.includes('row-level security') || lower.includes('permission denied')) {
+  if (code === '42P17' || lower.includes('row-level security') || lower.includes('permission denied')) {
     return NEEDS_MIGRATION;
   }
+  // Rule violations raised by the portal's database triggers carry a readable message.
+  if (code === '42501') return message || NEEDS_MIGRATION;
   if (lower.includes('bucket not found')) return STORAGE_MISSING;
   if (code === 'PGRST116') {
     return "That item couldn't be found. It may have been removed, or your account may not have access to it.";
@@ -110,18 +112,32 @@ function chunk<T>(list: T[], size = IN_CHUNK): T[][] {
   return out;
 }
 
+const PAGE = 1000;
+
 /**
  * Run a query once per batch of ids (keeps .in() URLs short) and merge the rows.
+ * Each batch is paged with .range() so PostgREST's row cap (1000 by default)
+ * never silently drops rows. The query must have a stable order.
  * An empty id list returns [] without a request.
  */
 async function inBatches<T>(
   ids: string[],
-  query: (batch: string[]) => PromiseLike<{ data: unknown; error: ErrorLike | null }>,
+  query: (batch: string[]) => { range: (from: number, to: number) => PromiseLike<{ data: unknown; error: ErrorLike | null }> },
 ): Promise<T[]> {
   const clean = uniqueIds(ids);
   if (clean.length === 0) return [];
-  const results = await Promise.all(chunk(clean).map((batch) => query(batch)));
-  return results.flatMap((result) => rows<T>(result));
+  const pages = await Promise.all(
+    chunk(clean).map(async (batch) => {
+      const out: T[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const page = rows<T>(await query(batch).range(from, from + PAGE - 1));
+        out.push(...page);
+        if (page.length < PAGE) break;
+      }
+      return out;
+    }),
+  );
+  return pages.flat();
 }
 
 type Comparator<T> = (a: T, b: T) => number;
@@ -208,7 +224,7 @@ export function createSupabaseBackend(): PortalBackend {
     },
 
     async listProfiles(ids) {
-      return inBatches<Profile>(ids, (batch) => db().from('profiles').select('*').in('id', batch));
+      return inBatches<Profile>(ids, (batch) => db().from('profiles').select('*').in('id', batch).order('id'));
     },
 
     async updateProfile(id, updates) {
@@ -262,7 +278,7 @@ export function createSupabaseBackend(): PortalBackend {
 
     async listSchools(studentIds) {
       const list = await inBatches<School>(studentIds, (batch) =>
-        db().from('schools').select('*').in('student_id', batch).order('deadline', { ascending: true, nullsFirst: false }),
+        db().from('schools').select('*').in('student_id', batch).order('deadline', { ascending: true, nullsFirst: false }).order('id'),
       );
       return sorted(list, ascNullsLast((s) => s.deadline));
     },
@@ -292,7 +308,7 @@ export function createSupabaseBackend(): PortalBackend {
 
     async listPrompts(schoolIds) {
       const list = await inBatches<Prompt>(schoolIds, (batch) =>
-        db().from('prompts').select('*').in('school_id', batch).order('sort_order', { ascending: true }),
+        db().from('prompts').select('*').in('school_id', batch).order('sort_order', { ascending: true }).order('id'),
       );
       return sorted(list, byNumber((p) => p.sort_order));
     },
@@ -312,7 +328,7 @@ export function createSupabaseBackend(): PortalBackend {
     /* Essays -------------------------------------------------------------- */
 
     async listEssays(studentIds) {
-      return inBatches<Essay>(studentIds, (batch) => db().from('essays').select('*').in('student_id', batch));
+      return inBatches<Essay>(studentIds, (batch) => db().from('essays').select('*').in('student_id', batch).order('id'));
     },
 
     async createEssay(input) {
@@ -330,7 +346,7 @@ export function createSupabaseBackend(): PortalBackend {
       };
 
       const existing = await findExisting();
-      if (existing) return existing;
+      if (existing) return { essay: existing, created: false };
 
       const content = input.content ?? '';
       const result = await db()
@@ -346,22 +362,31 @@ export function createSupabaseBackend(): PortalBackend {
         .select()
         .single();
       if (result.error?.code === '23505') {
-        // Someone else created it between our check and insert.
+        // Someone else created it between our check and insert (unique index).
         const raced = await findExisting();
-        if (raced) return raced;
+        if (raced) return { essay: raced, created: false };
       }
-      return row<Essay>(result);
+      return { essay: row<Essay>(result), created: true };
     },
 
-    async updateEssay(id, updates) {
-      return row<Essay>(
-        await db()
-          .from('essays')
-          .update({ ...updates, updated_at: new Date().toISOString() })
-          .eq('id', id)
-          .select()
-          .single(),
-        UPDATE_BLOCKED,
+    async updateEssay(id, updates, expectedUpdatedAt) {
+      let query = db()
+        .from('essays')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (expectedUpdatedAt) query = query.eq('updated_at', expectedUpdatedAt);
+      const result = await query.select().maybeSingle();
+      if (result.error) fail(result.error);
+      if (result.data) return result.data as Essay;
+
+      // Nothing matched: either the essay changed since we loaded it, or it is gone / not ours.
+      const current = await db().from('essays').select('*').eq('id', id).maybeSingle();
+      if (current.error) fail(current.error);
+      if (expectedUpdatedAt && current.data) throw new EssayConflictError(current.data as Essay);
+      throw new Error(
+        current.data
+          ? "This essay couldn't be saved. Your account may not have permission to change it."
+          : 'This essay no longer exists. It may have been deleted.',
       );
     },
 
@@ -388,7 +413,8 @@ export function createSupabaseBackend(): PortalBackend {
           .from('essay_comments')
           .select('*, author:profiles(*)')
           .in('essay_id', batch)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .order('id'),
       );
       return sorted(list.map(withAuthor), ascNullsLast((c) => c.created_at));
     },
@@ -408,7 +434,7 @@ export function createSupabaseBackend(): PortalBackend {
 
     async listTasks(studentIds) {
       const list = await inBatches<Task>(studentIds, (batch) =>
-        db().from('tasks').select('*').in('student_id', batch).order('due_date', { ascending: true, nullsFirst: false }),
+        db().from('tasks').select('*').in('student_id', batch).order('due_date', { ascending: true, nullsFirst: false }).order('id'),
       );
       return sorted(list, ascNullsLast((t) => t.due_date));
     },
@@ -472,7 +498,7 @@ export function createSupabaseBackend(): PortalBackend {
     },
 
     async listConversationsForStudents(studentIds) {
-      return inBatches<Conversation>(studentIds, (batch) => db().from('conversations').select('*').in('student_id', batch));
+      return inBatches<Conversation>(studentIds, (batch) => db().from('conversations').select('*').in('student_id', batch).order('id'));
     },
 
     async createConversation(input) {
@@ -491,7 +517,8 @@ export function createSupabaseBackend(): PortalBackend {
           .from('messages')
           .select('*, sender:profiles(*)')
           .in('conversation_id', batch)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .order('id'),
       );
       return sorted(list.map(withSender), ascNullsLast((m) => m.created_at));
     },
@@ -555,7 +582,7 @@ export function createSupabaseBackend(): PortalBackend {
 
     async listFiles(studentIds) {
       const list = await inBatches<SharedFile>(studentIds, (batch) =>
-        db().from('files').select('*').in('student_id', batch).order('created_at', { ascending: false }),
+        db().from('files').select('*').in('student_id', batch).order('created_at', { ascending: false }).order('id'),
       );
       return sorted(list, desc(ascNullsLast<SharedFile>((f) => f.created_at)));
     },

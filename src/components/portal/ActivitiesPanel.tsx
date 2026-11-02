@@ -726,11 +726,13 @@ function BudgetStrip({
   hoursPerYear,
   saving,
   saveError,
+  onRetry,
 }: {
   count: number;
   hoursPerYear: number;
   saving: boolean;
   saveError: string | null;
+  onRetry: () => void;
 }) {
   return (
     <div className="mb-8 grid gap-4 border-b border-portal-line pb-6 md:grid-cols-[auto_1fr_auto] md:items-end md:gap-8">
@@ -750,7 +752,10 @@ function BudgetStrip({
       <div className="min-w-0 md:max-w-[280px] md:text-right">
         {saveError ? (
           <p role="alert" className="font-mono text-[11px] text-portal-red">
-            Not saved: {saveError}
+            Not saved: {saveError}{' '}
+            <button type="button" onClick={onRetry} className="ml-1 border border-portal-red/50 px-2 py-0.5 uppercase tracking-[0.14em] hover:border-portal-red">
+              Retry
+            </button>
           </p>
         ) : (
           <p role="status" aria-live="polite" className="inline-flex items-center gap-2 font-mono text-[11px] text-portal-dim">
@@ -776,7 +781,7 @@ export default function ActivitiesPanel(props: StudentPanelProps) {
 }
 
 function ActivitiesList({ studentId, viewer }: Pick<StudentPanelProps, 'studentId' | 'viewer'>) {
-  const { activities, loading, error, saving, saveError, addActivity, updateActivity, deleteActivity, moveActivity } =
+  const { activities, loading, error, saving, saveError, retrySaves, addActivity, updateActivity, deleteActivity, moveActivity } =
     useActivities(studentId);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -927,7 +932,7 @@ function ActivitiesList({ studentId, viewer }: Pick<StudentPanelProps, 'studentI
         </div>
       ) : (
         <>
-          <BudgetStrip count={activities.length} hoursPerYear={hoursPerYear} saving={saving || typing} saveError={saveError} />
+          <BudgetStrip count={activities.length} hoursPerYear={hoursPerYear} saving={saving || typing} saveError={saveError} onRetry={retrySaves} />
 
           {(addError || full) && (
             <p role={addError ? 'alert' : undefined} className={cx('mb-6 text-sm', addError ? 'text-portal-red' : 'text-portal-muted')}>

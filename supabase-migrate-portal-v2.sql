@@ -17,6 +17,9 @@
 --  7. Enables essay version history.
 --  8. Enables file uploads (private Storage bucket "student-files").
 --  9. Enables realtime delivery for messages.
+-- 10. Server-side rules: one essay per prompt per student, submitted essays
+--     are locked, students can only move essays forward through review, and
+--     students cannot rewrite tasks their counselor assigned.
 -- ============================================================================
 
 -- 1. Helper: is the current user a counselor? -------------------------------
@@ -198,11 +201,23 @@ CREATE POLICY "Student files: upload" ON storage.objects
     AND ((storage.foldername(name))[1] = auth.uid()::text OR public.is_consultant())
   );
 
+-- Students may delete a stored file only if they uploaded it (matching the
+-- files table rule), or if it is an orphan in their folder with no files row.
 DROP POLICY IF EXISTS "Student files: delete" ON storage.objects;
 CREATE POLICY "Student files: delete" ON storage.objects
   FOR DELETE TO authenticated USING (
     bucket_id = 'student-files'
-    AND ((storage.foldername(name))[1] = auth.uid()::text OR public.is_consultant())
+    AND (
+      public.is_consultant()
+      OR EXISTS (
+        SELECT 1 FROM public.files f
+        WHERE f.storage_path = storage.objects.name AND f.uploaded_by = auth.uid()
+      )
+      OR (
+        (storage.foldername(name))[1] = auth.uid()::text
+        AND NOT EXISTS (SELECT 1 FROM public.files f WHERE f.storage_path = storage.objects.name)
+      )
+    )
   );
 
 -- 9. Realtime for messages ---------------------------------------------------------------
@@ -215,3 +230,111 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
   END IF;
 END $$;
+
+-- 10. Server-side rules ---------------------------------------------------------------
+
+-- One essay per prompt per student. Merge any existing duplicates first:
+-- keep the most recently updated row and move comments/versions onto it.
+WITH ranked AS (
+  SELECT id,
+         first_value(id) OVER w AS keep_id,
+         row_number() OVER w AS rn
+  FROM essays
+  WINDOW w AS (PARTITION BY prompt_id, student_id ORDER BY updated_at DESC NULLS LAST, id)
+)
+UPDATE essay_comments c SET essay_id = r.keep_id FROM ranked r WHERE c.essay_id = r.id AND r.rn > 1;
+
+WITH ranked AS (
+  SELECT id,
+         first_value(id) OVER w AS keep_id,
+         row_number() OVER w AS rn
+  FROM essays
+  WINDOW w AS (PARTITION BY prompt_id, student_id ORDER BY updated_at DESC NULLS LAST, id)
+)
+UPDATE essay_versions v SET essay_id = r.keep_id FROM ranked r WHERE v.essay_id = r.id AND r.rn > 1;
+
+WITH ranked AS (
+  SELECT id,
+         row_number() OVER (PARTITION BY prompt_id, student_id ORDER BY updated_at DESC NULLS LAST, id) AS rn
+  FROM essays
+)
+DELETE FROM essays e USING ranked r WHERE e.id = r.id AND r.rn > 1;
+
+CREATE UNIQUE INDEX IF NOT EXISTS essays_prompt_student_key ON essays (prompt_id, student_id);
+
+-- Essay rules for students (counselors are unrestricted):
+--  * a submitted essay cannot be edited
+--  * status can only move forward through review:
+--    not_started -> draft | in_review, draft -> in_review,
+--    revision -> in_review, final -> submitted
+CREATE OR REPLACE FUNCTION public.enforce_student_essay_rules()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF public.is_consultant() OR auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.student_id IS DISTINCT FROM OLD.student_id OR NEW.prompt_id IS DISTINCT FROM OLD.prompt_id THEN
+    RAISE EXCEPTION 'Essays cannot be moved to another prompt or student.' USING ERRCODE = '42501';
+  END IF;
+
+  IF OLD.status = 'submitted'
+     AND (NEW.content IS DISTINCT FROM OLD.content OR NEW.word_count IS DISTINCT FROM OLD.word_count) THEN
+    RAISE EXCEPTION 'This essay has been submitted and is locked. Ask your counselor to reopen it.' USING ERRCODE = '42501';
+  END IF;
+
+  IF NEW.status IS DISTINCT FROM OLD.status AND NOT (
+       (OLD.status = 'not_started' AND NEW.status IN ('draft', 'in_review'))
+    OR (OLD.status = 'draft' AND NEW.status = 'in_review')
+    OR (OLD.status = 'revision' AND NEW.status = 'in_review')
+    OR (OLD.status = 'final' AND NEW.status = 'submitted')
+  ) THEN
+    RAISE EXCEPTION 'Only your counselor can change this essay''s status that way.' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS essays_student_rules ON essays;
+CREATE TRIGGER essays_student_rules
+  BEFORE UPDATE ON essays
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_student_essay_rules();
+
+-- Task rules for students: they can tick off any of their tasks, but cannot
+-- reassign tasks or edit the details of tasks their counselor created.
+CREATE OR REPLACE FUNCTION public.enforce_student_task_rules()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF public.is_consultant() OR auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.created_by IS DISTINCT FROM OLD.created_by OR NEW.student_id IS DISTINCT FROM OLD.student_id THEN
+    RAISE EXCEPTION 'Tasks cannot be reassigned.' USING ERRCODE = '42501';
+  END IF;
+
+  IF OLD.created_by IS DISTINCT FROM auth.uid() AND (
+       NEW.title IS DISTINCT FROM OLD.title
+    OR NEW.category IS DISTINCT FROM OLD.category
+    OR NEW.due_date IS DISTINCT FROM OLD.due_date
+  ) THEN
+    RAISE EXCEPTION 'Only your counselor can edit tasks they assigned.' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tasks_student_rules ON tasks;
+CREATE TRIGGER tasks_student_rules
+  BEFORE UPDATE ON tasks
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_student_task_rules();
+
+DROP POLICY IF EXISTS "Students can update own tasks" ON tasks;
+CREATE POLICY "Students can update own tasks" ON tasks
+  FOR UPDATE USING (auth.uid() = student_id) WITH CHECK (auth.uid() = student_id);

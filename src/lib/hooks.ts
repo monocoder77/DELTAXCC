@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBackend } from '@/lib/backend/context';
+import { EssayConflictError } from '@/lib/backend/types';
 import type {
   ActivityUpdates,
   EssayUpdates,
@@ -63,13 +64,20 @@ function useResource<T>(
   initial: T,
 ): Resource<T> {
   const { api, subscribe } = useBackend();
-  const [data, setData] = useState<T>(initial);
+  // Data is stored with the key it was loaded for, so a screen never shows the
+  // previous student's data while the next student's is loading (or failed).
+  const [initialValue] = useState<T>(initial);
+  const [store, setStore] = useState<{ key: string | null; value: T }>({ key: null, value: initial });
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
   const [source] = useState(() => Symbol(key));
   const loadRef = useRef(load);
   const tablesKey = tables.join(',');
+
+  const setData = useCallback<React.Dispatch<React.SetStateAction<T>>>((action) => {
+    setStore((s) => ({ ...s, value: typeof action === 'function' ? (action as (prev: T) => T)(s.value) : action }));
+  }, []);
 
   useEffect(() => {
     loadRef.current = load;
@@ -82,7 +90,7 @@ function useResource<T>(
       .current(api)
       .then((result) => {
         if (cancelled) return;
-        setData(result);
+        setStore({ key, value: result });
         setError(null);
         setLoadedKey(key);
       })
@@ -108,7 +116,7 @@ function useResource<T>(
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   return {
-    data,
+    data: enabled && store.key === key ? store.value : initialValue,
     setData,
     loading: enabled && loadedKey !== key,
     error,
@@ -343,24 +351,42 @@ export function useApplications(studentIds: string[]) {
   );
 
   /* Essays */
+  /**
+   * Find or create the essay row for a prompt. `created` is false when a row
+   * already existed on the server (it may hold text this screen hasn't seen).
+   */
   const ensureEssay = useCallback(
-    async (promptId: string, studentId: string): Promise<Essay> => {
+    async (promptId: string, studentId: string): Promise<{ essay: Essay; created: boolean }> => {
       const existing = pickEssay(r.data.essays, promptId);
-      if (existing) return existing;
-      const created = await api.createEssay({ prompt_id: promptId, student_id: studentId });
-      setData((d) => ({ ...d, essays: [...d.essays, created] }));
+      if (existing) return { essay: existing, created: false };
+      const result = await api.createEssay({ prompt_id: promptId, student_id: studentId });
+      setData((d) => ({
+        ...d,
+        essays: d.essays.some((e) => e.id === result.essay.id)
+          ? d.essays.map((e) => (e.id === result.essay.id ? result.essay : e))
+          : [...d.essays, result.essay],
+      }));
       announce(['essays']);
-      return created;
+      return result;
     },
     [api, r.data.essays, setData, announce],
   );
 
+  /** Pass expectedUpdatedAt to refuse overwriting changes made elsewhere (throws EssayConflictError). */
   const updateEssay = useCallback(
-    async (id: string, updates: EssayUpdates) => {
-      const updated = await api.updateEssay(id, updates);
-      setData((d) => ({ ...d, essays: d.essays.map((e) => (e.id === id ? updated : e)) }));
-      announce(['essays']);
-      return updated;
+    async (id: string, updates: EssayUpdates, expectedUpdatedAt?: string) => {
+      try {
+        const updated = await api.updateEssay(id, updates, expectedUpdatedAt);
+        setData((d) => ({ ...d, essays: d.essays.map((e) => (e.id === id ? updated : e)) }));
+        announce(['essays']);
+        return updated;
+      } catch (err) {
+        if (err instanceof EssayConflictError && err.current) {
+          const current = err.current;
+          setData((d) => ({ ...d, essays: d.essays.map((e) => (e.id === id ? current : e)) }));
+        }
+        throw err;
+      }
     },
     [api, setData, announce],
   );
@@ -522,38 +548,61 @@ export function useActivities(studentId: string | null | undefined) {
     [],
   );
   const { setData, source } = r;
-  const timers = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; pending: ActivityUpdates }>());
+  const timers = useRef(new Map<string, { timer: ReturnType<typeof setTimeout> | null; pending: ActivityUpdates }>());
+  // All writes go through one queue so an older request can never land after a newer one.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
   const [saving, setSaving] = useState(0);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [failures, setFailures] = useState<Record<string, string>>({});
 
   const announce = useCallback(() => emit(['activities'], source), [emit, source]);
+
+  const enqueue = useCallback(<R,>(work: () => Promise<R>): Promise<R> => {
+    const next = queue.current.then(work, work);
+    queue.current = next.catch(() => undefined);
+    return next;
+  }, []);
 
   const flush = useCallback(
     async (id: string) => {
       const entry = timers.current.get(id);
       if (!entry) return;
-      clearTimeout(entry.timer);
+      if (entry.timer) clearTimeout(entry.timer);
       timers.current.delete(id);
       setSaving((n) => n + 1);
       try {
-        await api.updateActivity(id, entry.pending);
-        setSaveError(null);
+        await enqueue(() => api.updateActivity(id, entry.pending));
+        setFailures((f) => {
+          if (!(id in f)) return f;
+          const rest = { ...f };
+          delete rest[id];
+          return rest;
+        });
         announce();
       } catch (err) {
-        setSaveError(errorMessage(err));
+        // Put the failed fields back (newer edits win) so the next save retries them.
+        const current = timers.current.get(id);
+        timers.current.set(id, { timer: current?.timer ?? null, pending: { ...entry.pending, ...(current?.pending ?? {}) } });
+        setFailures((f) => ({ ...f, [id]: errorMessage(err) }));
       } finally {
         setSaving((n) => n - 1);
       }
     },
-    [api, announce],
+    [api, announce, enqueue],
   );
+
+  /** Retry every activity whose last save failed. */
+  const retrySaves = useCallback(() => {
+    timers.current.forEach((_entry, id) => void flush(id));
+  }, [flush]);
+
+  const saveError = Object.values(failures)[0] ?? null;
 
   // Save anything pending when leaving the screen.
   useEffect(() => {
     const map = timers.current;
     return () => {
       map.forEach((entry, id) => {
-        clearTimeout(entry.timer);
+        if (entry.timer) clearTimeout(entry.timer);
         api.updateActivity(id, entry.pending).catch(() => {});
       });
       map.clear();
@@ -565,7 +614,7 @@ export function useActivities(studentId: string | null | undefined) {
     (id: string, updates: ActivityUpdates) => {
       setData((list) => list.map((a) => (a.id === id ? { ...a, ...updates } : a)));
       const existing = timers.current.get(id);
-      if (existing) clearTimeout(existing.timer);
+      if (existing?.timer) clearTimeout(existing.timer);
       const pending = { ...(existing?.pending ?? {}), ...updates };
       const timer = setTimeout(() => void flush(id), 700);
       timers.current.set(id, { timer, pending });
@@ -600,26 +649,40 @@ export function useActivities(studentId: string | null | undefined) {
       const renumbered = list.map((a, i) => ({ ...a, position_order: i + 1 }));
       setData(renumbered);
       try {
-        await Promise.all(changed.map((a) => api.updateActivity(a.id, { position_order: renumbered.findIndex((x) => x.id === a.id) + 1 })));
+        await enqueue(() =>
+          Promise.all(changed.map((a) => api.updateActivity(a.id, { position_order: renumbered.findIndex((x) => x.id === a.id) + 1 }))),
+        );
+        setFailures((f) => {
+          if (!('order' in f)) return f;
+          const rest = { ...f };
+          delete rest.order;
+          return rest;
+        });
         announce();
       } catch (err) {
-        setSaveError(errorMessage(err));
+        setFailures((f) => ({ ...f, order: errorMessage(err) }));
       }
     },
-    [api, setData, announce],
+    [api, setData, announce, enqueue],
   );
 
   const deleteActivity = useCallback(
     async (id: string) => {
       const entry = timers.current.get(id);
       if (entry) {
-        clearTimeout(entry.timer);
+        if (entry.timer) clearTimeout(entry.timer);
         timers.current.delete(id);
       }
-      await api.deleteActivity(id);
+      setFailures((f) => {
+        if (!(id in f)) return f;
+        const rest = { ...f };
+        delete rest[id];
+        return rest;
+      });
+      await enqueue(() => api.deleteActivity(id));
       await persistOrder(r.data.filter((a) => a.id !== id));
     },
-    [api, r.data, persistOrder],
+    [api, r.data, persistOrder, enqueue],
   );
 
   const moveActivity = useCallback(
@@ -639,6 +702,7 @@ export function useActivities(studentId: string | null | undefined) {
     error: r.error,
     saving: saving > 0,
     saveError,
+    retrySaves,
     addActivity,
     updateActivity,
     deleteActivity,
@@ -783,6 +847,8 @@ export function useFiles(studentIds: string[]) {
     async (file: SharedFile) => {
       // Open the tab synchronously so popup blockers allow it, then point it at the signed URL.
       const tab = window.open('', '_blank');
+      // Cut the link back to the portal so the opened file can't navigate this tab.
+      if (tab) tab.opener = null;
       try {
         const url = await api.getFileUrl(file);
         if (tab) tab.location.href = url;
