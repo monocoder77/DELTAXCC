@@ -3,11 +3,23 @@
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', function() {
+    initAmbient();
     initHeaderScroll();
     initActiveNav();
     initFormValidation();
     initScrollReveal();
 });
+
+/* --------------------------------------------------------------------------
+   Ambient background: breathing tint with rippling squares (styled in CSS)
+   -------------------------------------------------------------------------- */
+function initAmbient() {
+    const ambient = document.createElement('div');
+    ambient.className = 'ambient';
+    ambient.setAttribute('aria-hidden', 'true');
+    ambient.innerHTML = '<i></i><i></i><i></i><i></i>';
+    document.body.prepend(ambient);
+}
 
 /* --------------------------------------------------------------------------
    Header: add a border once the page is scrolled
