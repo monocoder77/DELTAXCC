@@ -2,6 +2,11 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
+  // The demo portal runs on sample data and needs no session.
+  if (request.nextUrl.pathname === '/portal/demo' || request.nextUrl.pathname.startsWith('/portal/demo/')) {
+    return NextResponse.next();
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -13,7 +18,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({ request });
@@ -29,7 +34,9 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   // Protect portal routes (but not login)
-  if (request.nextUrl.pathname.startsWith('/portal') && !request.nextUrl.pathname.startsWith('/portal/login') && !request.nextUrl.pathname.startsWith('/portal/signup')) {
+  const path = request.nextUrl.pathname;
+  const isPublic = path === '/portal/login';
+  if (path.startsWith('/portal') && !isPublic) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = '/portal/login';
